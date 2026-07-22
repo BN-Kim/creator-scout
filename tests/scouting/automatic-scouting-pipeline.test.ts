@@ -90,7 +90,7 @@ describe("automatic scouting pipeline", () => {
     expect(result.results[0]).toMatchObject({
       decision: "hold",
       identity: { youtubeChannelId: CHANNEL_A, category: "뷰티", identityVerificationState: "confirmed" },
-      evidence: { evidenceSource: "youtube_data_api_v3", recentVideoCount: 5, recentAverageViews: 15000 },
+      evidence: { evidenceSource: "fictional_mock", recentVideoCount: 5, recentAverageViews: 15000 },
     });
     expect(repository.load()).toHaveLength(1);
   });
@@ -269,6 +269,7 @@ function createHarness(candidateIds: string[], repository: HistoryRepository, op
 
 function channelEvidence(identity: ResolvedYouTubeIdentity): NormalizedChannelEvidence {
   return {
+    evidenceSource: "fictional_mock",
     channelId: identity.channelId,
     channelName: identity.channelName,
     handle: identity.handle,

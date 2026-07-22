@@ -134,6 +134,7 @@ function resolvedIdentity(channelId: string): ResolvedYouTubeIdentity {
 
 function channelEvidence(identity: ResolvedYouTubeIdentity): NormalizedChannelEvidence {
   return {
+    evidenceSource: "fictional_mock",
     channelId: identity.channelId,
     channelName: identity.channelName,
     handle: null,

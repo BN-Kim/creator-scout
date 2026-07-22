@@ -48,7 +48,7 @@ export function createVerificationEvidence(
     emailVerificationState: "not_checked",
     emailClassification: "not_checked",
     recruitmentSuitability: null,
-    evidenceSource: "youtube_data_api_v3",
+    evidenceSource: channel.evidenceSource,
     verifiedAt: verifiedAt.toISOString(),
   };
 }

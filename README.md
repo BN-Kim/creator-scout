@@ -1,6 +1,6 @@
 # 크리에이터 스카우트
 
-새로운 YouTube 채널을 자동 발견하고 안정적인 신원으로 정규화한 뒤, SQLite 히스토리에서 과거 처리 여부를 먼저 확인하고 진정으로 새로운 채널만 검증·판정·자동 저장하는 Next.js 운영 애플리케이션입니다. H0 하네스, H1 UI 스모크 테스트, H2 서버 영속 히스토리와 H3 YouTube 신원·근거 공급자 계층이 완료되었습니다.
+새로운 YouTube 채널을 자동 발견하고 안정적인 신원으로 정규화한 뒤, SQLite 히스토리에서 과거 처리 여부를 먼저 확인하고 진정으로 새로운 채널만 검증·판정·자동 저장하는 Next.js 운영 애플리케이션입니다. H0~H4와 H4 이후의 YouTube.js 공급자 통합 작업이 완료되었습니다.
 
 ## 시작하기
 
@@ -10,6 +10,19 @@ npm run dev
 ```
 
 `http://localhost:3000`에서 실행됩니다.
+
+기본 YouTube 공급자는 API 키가 필요 없는 서버 전용 InnerTube 어댑터입니다. `.env.local`에서 다음 중 하나를 선택할 수 있습니다.
+
+```bash
+YOUTUBE_PROVIDER=innertube
+```
+
+공식 YouTube Data API v3 어댑터를 선택할 때만 키가 필요합니다.
+
+```bash
+YOUTUBE_PROVIDER=official
+YOUTUBE_API_KEY=your_key
+```
 
 새 작업을 시작할 때는 [`AGENTS.md`](AGENTS.md)와 [`docs/index.md`](docs/index.md)를 먼저 읽으세요. 현재 구현 범위는 [`docs/current-status.md`](docs/current-status.md), 이후 단계는 [`docs/development-plan.md`](docs/development-plan.md)에 있습니다.
 
@@ -35,7 +48,7 @@ npm run verify
 npm run test:e2e
 ```
 
-실제 키나 네트워크가 필요 없는 H3 공급자 테스트는 다음과 같습니다.
+실제 키나 네트워크가 필요 없는 공급자 테스트는 다음과 같습니다.
 
 ```bash
 npm run test:providers
@@ -43,4 +56,4 @@ npm run test:providers
 
 ## 현재 제한사항
 
-실제 YouTube 탐색·검증, 자동 실행 파이프라인, 이메일 수집, 실시간 시청자 분석, 운영용 외부 데이터베이스, 인증, 예약 작업, 배포 인프라와 AI 분석은 구현되어 있지 않습니다. 현재 SQLite는 단일 서버 파일 배포를 전제로 합니다.
+InnerTube는 YouTube의 내부 인터페이스 변화나 접근 제한으로 중단될 수 있으며, 현재 실행 결과 묶음은 서버 재시작 후 복구되지 않습니다. 이메일 수집, 실시간 시청자 분석, 운영용 외부 데이터베이스, 인증, 예약 작업, 배포 인프라와 AI 분석은 구현되어 있지 않습니다. 현재 SQLite는 단일 서버 파일 배포를 전제로 합니다.

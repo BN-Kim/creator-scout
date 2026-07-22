@@ -7,7 +7,9 @@ export type YouTubeProviderErrorCategory =
   | "unauthorized"
   | "timeout"
   | "temporary"
-  | "response_invalid";
+  | "response_invalid"
+  | "access_restricted"
+  | "provider_incompatible";
 
 export interface YouTubeProviderErrorOptions {
   category: YouTubeProviderErrorCategory;

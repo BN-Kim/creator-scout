@@ -21,7 +21,9 @@
 | 신원·중복 매칭 | `src/server/history/history-matcher.ts`, `src/server/history/url-classifier.ts` |
 | 히스토리 레코드 매핑 | `src/server/history/history-record.ts` |
 | 결과 그룹화 | `src/server/output/group-results.ts` |
-| YouTube 공급자 계약·어댑터 | `src/server/providers/youtube/provider-contracts.ts`, `src/server/providers/youtube/youtube-data-api-provider.ts` |
+| YouTube 공급자 계약·선택 | `src/server/providers/youtube/provider-contracts.ts`, `src/server/providers/youtube/create-provider.ts` |
+| YouTube 공급자 어댑터 | `src/server/providers/youtube/innertube-provider.ts`, `src/server/providers/youtube/youtube-data-api-provider.ts` |
+| 서버 전용 YouTube.js 브리지 | `src/server/providers/youtube/youtubejs-runtime.ts`, `src/server/providers/youtube/innertube-client.ts` |
 | 공급자 오류·설정·로깅 | `src/server/providers/youtube/provider-error.ts`, `src/server/providers/youtube/provider-config.ts`, `src/server/providers/youtube/provider-logger.ts` |
 | 안정적 신원 정규화 | `src/server/providers/youtube/identity-input.ts` |
 | 히스토리 사전 확인·근거 변환 | `src/server/providers/youtube/history-prechecked-evidence.ts`, `src/server/providers/youtube/verification-evidence.ts` |
@@ -94,3 +96,4 @@ UI가 설정과 입력을 조합하지만 판정 자체는 `evaluateCreator`가 
 - `localStorage`는 현재 v2 기록을 한 번 서버로 전환하는 입력으로만 사용하며 원본으로 취급하지 않습니다.
 - JSON 내보내기는 읽기 전용 호환 출력이며 파이프라인 입력이 아닙니다.
 - 공급자 원본 응답은 정규화 근거와 분리하고 UI·판정 엔진에 직접 전달하지 않습니다.
+- YouTube.js의 변동 가능한 파서 객체는 서버 전용 런타임 브리지 밖으로 전달하지 않고 안정적인 내부 스냅샷으로 격리합니다.

@@ -40,6 +40,7 @@ export interface IdentityResolutionResult<TRaw = unknown> {
 }
 
 export interface NormalizedChannelEvidence {
+  evidenceSource: "youtube_data_api_v3" | "youtubejs_innertube" | "fictional_mock";
   channelId: string;
   channelName: string;
   handle: string | null;

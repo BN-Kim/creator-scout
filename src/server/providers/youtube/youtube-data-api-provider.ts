@@ -87,6 +87,7 @@ export class YouTubeDataApiProvider implements YouTubeCandidateDiscoveryProvider
     const subscriberCountHidden = statistics?.hiddenSubscriberCount === true;
     return {
       normalized: {
+        evidenceSource: "youtube_data_api_v3",
         channelId,
         channelName,
         handle: rawHandle(snippet?.customUrl) ?? identity.handle,

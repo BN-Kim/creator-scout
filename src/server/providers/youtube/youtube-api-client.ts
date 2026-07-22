@@ -132,6 +132,8 @@ function messageForCategory(category: YouTubeProviderErrorCategory): string {
     timeout: "YouTube provider request timed out.",
     temporary: "YouTube provider is temporarily unavailable.",
     response_invalid: "YouTube provider returned an invalid response.",
+    access_restricted: "YouTube provider access is restricted.",
+    provider_incompatible: "YouTube provider response is incompatible.",
   };
   return messages[category];
 }

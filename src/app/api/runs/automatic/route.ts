@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { defaultRecommendationSettings } from "@/config/recommendation-rules";
 import { getServerHistoryRepository } from "@/server/history/server-history-repository";
-import { createYouTubeDataApiProvider } from "@/server/providers/youtube/create-provider";
+import { createConfiguredYouTubeProvider } from "@/server/providers/youtube/create-provider";
 import { YouTubeProviderError } from "@/server/providers/youtube/provider-error";
 import { AutomaticScoutingPipeline } from "@/server/scouting/automatic-scouting-pipeline";
 import { saveAutomaticRunResult } from "@/server/scouting/automatic-run-result-store";
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ runId: result.runId });
     }
 
-    const provider = createYouTubeDataApiProvider();
+    const provider = createConfiguredYouTubeProvider();
     const runId = `automatic-${randomUUID()}`;
     const pipeline = new AutomaticScoutingPipeline({
       discoveryProvider: provider,

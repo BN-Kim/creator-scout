@@ -23,6 +23,7 @@ describe("YouTube evidence provider", () => {
     const provider = new YouTubeDataApiProvider(providerConfig(), { fetch: new FetchQueue(jsonResponse(raw)).fetch });
     const result = await provider.getChannelEvidence(identity);
     expect(result.normalized).toEqual({
+      evidenceSource: "youtube_data_api_v3",
       channelId: MOCK_CHANNEL_ID,
       channelName: "허구 목 채널",
       handle: "@fictionalmock",
@@ -77,6 +78,7 @@ describe("YouTube evidence provider", () => {
 
   it("maps only available normalized data into the existing evidence domain", () => {
     const channel = {
+      evidenceSource: "fictional_mock" as const,
       channelId: MOCK_CHANNEL_ID, channelName: "허구 목 채널", handle: "@fictionalmock",
       canonicalChannelUrl: identity.canonicalChannelUrl, subscriberCount: null, subscriberCountHidden: true,
       publicVideoCount: 2, channelPublishedAt: null, country: null, uploadsPlaylistId: "UUfictionaluploads",

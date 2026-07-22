@@ -63,7 +63,7 @@ describe("history-prechecked YouTube evidence collection", () => {
     const outcome = await collector.collect({ kind: "channel_id", value: SECOND_MOCK_CHANNEL_ID }, { now: new Date("2026-07-22T00:00:00Z") });
     expect(outcome).toMatchObject({ kind: "evidence_collected", decision: null });
     if (outcome.kind === "evidence_collected") {
-      expect(outcome.evidence.verificationEvidence.evidenceSource).toBe("youtube_data_api_v3");
+      expect(outcome.evidence.verificationEvidence.evidenceSource).toBe("fictional_mock");
       expect(outcome.raw).toEqual({ identity: { fixture: "identity" }, channel: { fixture: "channel" }, recentVideos: { fixture: "videos" } });
     }
     expect(providers.calls.channelEvidence).toBe(1);
@@ -95,6 +95,7 @@ function providerDoubles(resolved: ResolvedYouTubeIdentity): {
 } {
   const calls = { channelEvidence: 0, recentVideos: 0 };
   const channel: NormalizedChannelEvidence = {
+    evidenceSource: "fictional_mock",
     channelId: resolved.channelId,
     channelName: resolved.channelName,
     handle: resolved.handle,
