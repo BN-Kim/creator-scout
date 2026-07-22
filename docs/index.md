@@ -11,6 +11,6 @@
 | 검증 절차 | [`verification.md`](verification.md) | 안전한 변경을 증명하는 명령과 검사 범위 |
 | 결정 기록 | [`decisions/README.md`](decisions/README.md) | 변경 시 명시적 제품 결정이 필요한 불변 결정 목록 |
 | 작업 템플릿 | [`task-template.md`](task-template.md) | 향후 작은 Codex 작업 명세 양식 |
-| 다음 작업 | [`next-task.md`](next-task.md) | 다음 승인 단계인 H2 서버 영속 히스토리 |
+| 다음 작업 | [`next-task.md`](next-task.md) | 다음 승인 단계인 H3 레거시 히스토리 마이그레이션 |
 
 보조 문서인 [`history-design.md`](history-design.md)와 [`recommendation-rule-matrix.md`](recommendation-rule-matrix.md)는 구현 위치를 설명하며, 업무 규칙이 충돌할 경우 항상 [`product-rules.md`](product-rules.md)가 우선합니다.

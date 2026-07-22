@@ -1,5 +1,6 @@
 import { findHistoryMatch } from "@/server/history/history-matcher";
 import type { HistoryFilters, HistoryRepository } from "@/server/history/history-repository";
+import { mergeHistoryRecord } from "@/server/history/merge-history-record";
 import type { CreatorIdentity, HistoryRecord } from "@/types/domain";
 
 export const HISTORY_STORAGE_KEY = "creator-scout-history-v2";
@@ -11,14 +12,4 @@ export class BrowserHistoryRepository implements HistoryRepository {
   findDuplicate(identity: CreatorIdentity): HistoryRecord | null { const records = this.load(); const match = findHistoryMatch(identity, records); return match?.recordId ? records.find((record) => record.id === match.recordId) ?? null : null; }
   addOrUpdate(record: HistoryRecord): HistoryRecord[] { const records = this.load(); const match = findHistoryMatch(record.identity, records); if (!match?.recordId) { const next = [...records, record]; this.replace(next); return next; } const next = records.map((item) => item.id === match.recordId ? mergeHistoryRecord(item, record) : item); this.replace(next); return next; }
   replace(records: HistoryRecord[]): void { this.storage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(records)); }
-}
-
-export function mergeHistoryRecord(existing: HistoryRecord, incoming: HistoryRecord): HistoryRecord {
-  return { ...existing, ...incoming, id: existing.id, createdAt: existing.createdAt, identity: {
-    ...existing.identity, ...incoming.identity,
-    youtubeChannelId: incoming.identity.youtubeChannelId ?? existing.identity.youtubeChannelId,
-    canonicalChannelUrl: incoming.identity.canonicalChannelUrl ?? existing.identity.canonicalChannelUrl,
-    youtubeHandle: incoming.identity.youtubeHandle ?? existing.identity.youtubeHandle,
-    confirmedAliases: [...new Set([...existing.identity.confirmedAliases, ...incoming.identity.confirmedAliases])],
-  } };
 }

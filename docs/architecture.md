@@ -14,7 +14,10 @@
 | 최근 조회 평가 | `src/server/rules/recent-traffic.ts` |
 | 사유 코드 설명 | `src/server/rules/reason-codes.ts` |
 | 히스토리 인터페이스 | `src/server/history/history-repository.ts` |
-| 브라우저 저장소 구현 | `src/lib/browser-history-repository.ts` |
+| 서버 저장소 구현 | `src/server/history/sqlite-history-repository.ts`, `src/server/history/server-history-repository.ts` |
+| 데이터베이스와 마이그레이션 | `src/server/database/database.ts`, `src/server/database/migrations.ts` |
+| 히스토리 HTTP 경계 | `src/app/api/history/*`, `src/lib/history-api-client.ts` |
+| 브라우저 저장소 전환 호환 | `src/lib/browser-history-repository.ts`, `src/lib/history-api-client.ts` |
 | 신원·중복 매칭 | `src/server/history/history-matcher.ts`, `src/server/history/url-classifier.ts` |
 | 히스토리 레코드 매핑 | `src/server/history/history-record.ts` |
 | 결과 그룹화 | `src/server/output/group-results.ts` |
@@ -33,7 +36,9 @@ UI
 
 UI
   ↓ history repository interface
-  ↓ browser localStorage implementation
+  ↓ history HTTP API
+  ↓ SQLite HistoryRepository implementation
+  ↓ versioned database schema
 ```
 
 ```text
@@ -55,4 +60,4 @@ UI가 설정과 입력을 조합하지만 판정 자체는 `evaluateCreator`가 
 - 향후 외부 데이터 공급자는 어댑터 인터페이스 뒤에 배치합니다.
 - 설정 가능한 값을 UI 컴포넌트 안에 숨기지 않습니다.
 - 사유 코드는 한국어 표시 메시지와 분리합니다.
-- 현재 브라우저 저장소는 임시 구현이며 서버 저장소처럼 취급하지 않습니다.
+- `localStorage`는 현재 v2 기록을 한 번 서버로 전환하는 입력으로만 사용하며 원본으로 취급하지 않습니다.

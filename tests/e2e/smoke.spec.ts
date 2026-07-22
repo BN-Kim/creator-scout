@@ -1,6 +1,5 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 
-const HISTORY_KEY = "creator-scout-history-v2";
 const requiredRoutes = ["/", "/runs/new", "/runs/mock-new-run", "/history", "/settings"] as const;
 
 async function resetBrowserStorage(page: Page): Promise<void> {
@@ -20,10 +19,19 @@ async function openMockRun(page: Page): Promise<void> {
 }
 
 async function historyRecords(page: Page): Promise<Array<{ id: string; finalDecision: string }>> {
-  return page.evaluate((key) => JSON.parse(window.localStorage.getItem(key) ?? "[]") as Array<{ id: string; finalDecision: string }>, HISTORY_KEY);
+  return page.evaluate(async () => {
+    const response = await fetch("/api/history");
+    return await response.json() as Array<{ id: string; finalDecision: string }>;
+  });
 }
 
-test.beforeEach(async ({ page }) => {
+async function resetServerHistory(request: APIRequestContext): Promise<void> {
+  const response = await request.post("/api/test/history-reset", { headers: { "x-e2e-test": "reset-history" } });
+  expect(response.ok()).toBe(true);
+}
+
+test.beforeEach(async ({ page, request }) => {
+  await resetServerHistory(request);
   await resetBrowserStorage(page);
 });
 
@@ -67,7 +75,7 @@ test("추천·보류·제외가 렌더링되고 각 크리에이터는 한 그�
   expect(new Set(allNames).size).toBe(allNames.length);
 });
 
-test("완료된 목 실행이 히스토리를 자동 갱신한다", async ({ page }) => {
+test("완료된 목 실행이 모든 브라우저에서 조회되는 서버 히스토리를 자동 갱신한다", async ({ page, browser }) => {
   await openMockRun(page);
   const stored = await historyRecords(page);
   expect(stored).toHaveLength(23);
@@ -76,6 +84,12 @@ test("완료된 목 실행이 히스토리를 자동 갱신한다", async ({ pag
   await page.goto("/history");
   await expect(page.getByText("총 23개 기록", { exact: false })).toBeVisible();
   await expect(page.getByRole("row", { name: /목 크리에이터 01/ })).toBeVisible();
+
+  const otherContext = await browser.newContext();
+  const otherPage = await otherContext.newPage();
+  await otherPage.goto("/history");
+  await expect(otherPage.getByText("총 23개 기록", { exact: false })).toBeVisible();
+  await otherContext.close();
 });
 
 test("수동 교정이 크리에이터를 제외로 이동시키고 표시 히스토리를 갱신한다", async ({ page }) => {

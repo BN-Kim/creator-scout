@@ -20,5 +20,9 @@ export default defineConfig({
     url: `http://localhost:${port}`,
     reuseExistingServer: false,
     timeout: 120_000,
+    env: {
+      E2E_TEST_MODE: "1",
+      HISTORY_DATABASE_PATH: ".data/e2e-history.sqlite",
+    },
   },
 });
