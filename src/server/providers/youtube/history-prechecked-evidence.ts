@@ -1,6 +1,6 @@
 import type { HistoryRepository } from "@/server/history/history-repository";
 import type { YouTubeEvidenceProvider, YouTubeIdentityProvider } from "@/server/providers/youtube/provider-contracts";
-import type { HistoryPrecheckedEvidenceOutcome, ResolvedYouTubeIdentity, YouTubeIdentityInput } from "@/server/providers/youtube/provider-types";
+import type { HistoryPrecheckedEvidenceOutcome, IdentityResolutionResult, ResolvedYouTubeIdentity, YouTubeIdentityInput } from "@/server/providers/youtube/provider-types";
 import { createVerificationEvidence } from "@/server/providers/youtube/verification-evidence";
 import type { CreatorIdentity } from "@/types/domain";
 
@@ -21,6 +21,13 @@ export class HistoryPrecheckedYouTubeEvidenceCollector {
     options: HistoryPrecheckedEvidenceOptions = {},
   ): Promise<HistoryPrecheckedEvidenceOutcome> {
     const identityResult = await this.identityProvider.resolveIdentity(input);
+    return this.collectResolved(identityResult, options);
+  }
+
+  async collectResolved(
+    identityResult: IdentityResolutionResult,
+    options: HistoryPrecheckedEvidenceOptions = {},
+  ): Promise<HistoryPrecheckedEvidenceOutcome> {
     const historyMatch = this.historyRepository.findDuplicate(toStableHistoryLookupIdentity(identityResult.identity));
     if (historyMatch) {
       return {
@@ -56,7 +63,7 @@ export class HistoryPrecheckedYouTubeEvidenceCollector {
   }
 }
 
-function toStableHistoryLookupIdentity(identity: ResolvedYouTubeIdentity): CreatorIdentity {
+export function toStableHistoryLookupIdentity(identity: ResolvedYouTubeIdentity): CreatorIdentity {
   return {
     internalId: `youtube:${identity.channelId}`,
     channelName: `youtube:${identity.channelId}`,

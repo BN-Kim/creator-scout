@@ -5,7 +5,7 @@
 | 책임 | 소유 경로 |
 | --- | --- |
 | App Router 페이지 | `src/app/page.tsx`, `src/app/runs/new/page.tsx`, `src/app/runs/[id]/page.tsx`, `src/app/history/page.tsx`, `src/app/settings/page.tsx` |
-| 실행 오케스트레이션 | `src/app/runs/[id]/run-detail-client.tsx`, `src/lib/mock-run.ts` |
+| 실행 오케스트레이션 | `src/server/scouting/automatic-scouting-pipeline.ts`, `src/app/api/runs/automatic/route.ts` |
 | 재사용 UI | `src/components/*` |
 | 도메인 타입 | `src/types/domain.ts` |
 | 판정 설정과 런타임 검증 | `src/config/recommendation-rules.ts` |
@@ -25,7 +25,7 @@
 | 공급자 오류·설정·로깅 | `src/server/providers/youtube/provider-error.ts`, `src/server/providers/youtube/provider-config.ts`, `src/server/providers/youtube/provider-logger.ts` |
 | 안정적 신원 정규화 | `src/server/providers/youtube/identity-input.ts` |
 | 히스토리 사전 확인·근거 변환 | `src/server/providers/youtube/history-prechecked-evidence.ts`, `src/server/providers/youtube/verification-evidence.ts` |
-| 향후 자동 파이프라인 | H4 실행 오케스트레이션에 추가 예정 |
+| 실행 결과 조합·표시 | `src/server/scouting/creator-input-assembler.ts`, `src/app/runs/[id]/automatic-run-result.tsx` |
 | 목 입력 데이터 | `src/data/creators.ts`, `src/data/scouting-runs.ts`, `src/data/recommendation-settings.ts` |
 | 단위·계약 테스트 | `tests/*.test.ts`, `tests/contracts/*.test.ts` |
 | 브라우저 UI 스모크 테스트 | `playwright.config.ts`, `tests/e2e/smoke.spec.ts` |
@@ -55,7 +55,7 @@ UI
   → 화면 표시 + HistoryRecord 자동 저장
 ```
 
-현재 목 실행은 기존 엔진의 방어적 중복 판정을 노출하는 테스트 하네스입니다. 실제 자동 파이프라인의 목표 의존 순서는 다음과 같습니다.
+기존 목 실행은 엔진의 방어적 중복 판정을 노출하는 회귀 하네스입니다. H4 자동 파이프라인은 다음 의존 순서를 구현합니다.
 
 ```text
 후보 발견
@@ -68,7 +68,7 @@ UI
 
 과거 일치는 판정 엔진이나 결과 그룹으로 보내지 않습니다. 따라서 비용이 큰 근거 수집, 새 `excluded` 결과와 추가 히스토리 쓰기가 발생하지 않습니다.
 
-H3는 후보 공급자와 단일 후보 처리의 앞부분을 구현합니다.
+H3 단일 후보 경계는 독립적으로 유지되며 H4 파이프라인이 같은 공급자 계약과 근거 변환을 배치 단위로 소비합니다.
 
 ```text
 YouTube identity input

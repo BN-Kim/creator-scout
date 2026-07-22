@@ -1,6 +1,6 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 
-const requiredRoutes = ["/", "/runs/new", "/runs/mock-new-run", "/history", "/settings"] as const;
+const requiredRoutes = ["/", "/runs/new", "/runs/mock-new-run", "/runs/automatic-h4-mock-run", "/history", "/settings"] as const;
 
 async function resetBrowserStorage(page: Page): Promise<void> {
   await page.goto("/");
@@ -55,8 +55,8 @@ test("새 추천 실행 폼은 무효 입력을 막고 유효 입력을 상세 �
   await page.getByLabel("검색 키워드").fill("허구 목 키워드");
   await page.getByRole("button", { name: "추천 실행 만들기" }).click();
 
-  await expect(page).toHaveURL(/\/runs\/mock-new-run$/);
-  await expect(page.getByRole("heading", { name: "2단계 목 추천 실행" })).toBeVisible();
+  await expect(page).toHaveURL(/\/runs\/automatic-[a-f0-9-]+$/);
+  await expect(page.getByRole("heading", { name: "자동 목 스카우팅 실행" })).toBeVisible();
 });
 
 test("추천·보류·제외가 렌더링되고 각 크리에이터는 한 그룹에만 존재한다", async ({ page }) => {
@@ -128,4 +128,33 @@ test("반복 실행과 반복 교정은 히스토리 레코드를 중복 생성�
 
   expect(afterRepeatedCorrection).toHaveLength(afterCorrection.length);
   expect(new Set(afterRepeatedCorrection.map((record) => record.id)).size).toBe(afterRepeatedCorrection.length);
+});
+
+test("H4 자동 실행은 신규 결과만 표시하고 반복 실행에도 히스토리를 중복 생성하지 않는다", async ({ page }) => {
+  await page.goto("/runs/automatic-h4-mock-run");
+  await expect(page.getByRole("heading", { name: "자동 목 스카우팅 실행" })).toBeVisible();
+  const stats = page.getByRole("region", { name: "실행 통계" });
+  await expect(stats).toContainText("발견6");
+  await expect(stats).toContainText("중복 건너뜀2");
+  await expect(stats).toContainText("평가3");
+  await expect(stats).toContainText("추천1");
+  await expect(stats).toContainText("보류1");
+  await expect(stats).toContainText("제외1");
+  await expect(stats).toContainText("실패1");
+
+  await expect(page.getByText("H4 허구 추천 채널", { exact: true })).toHaveCount(1);
+  await expect(page.getByText("H4 허구 보류 채널", { exact: true })).toHaveCount(1);
+  await expect(page.getByText("H4 허구 제외 채널", { exact: true })).toHaveCount(1);
+  await expect(page.getByText("H4 허구 과거 채널", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("H4 허구 실패 채널", { exact: true })).toHaveCount(0);
+
+  const firstHistory = await historyRecords(page);
+  expect(firstHistory).toHaveLength(4);
+  expect(new Set(firstHistory.map((record) => record.id)).size).toBe(4);
+
+  await page.reload();
+  await expect(page.getByText("새로 처리된 결과가 없습니다", { exact: true })).toBeVisible();
+  const repeatedHistory = await historyRecords(page);
+  expect(repeatedHistory).toHaveLength(4);
+  expect(new Set(repeatedHistory.map((record) => record.id)).size).toBe(4);
 });

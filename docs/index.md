@@ -12,6 +12,6 @@
 | YouTube 공급자 | [`youtube-provider.md`](youtube-provider.md) | H3 신원·근거·사전 확인·오류·환경 설정 계약 |
 | 결정 기록 | [`decisions/README.md`](decisions/README.md) | 변경 시 명시적 제품 결정이 필요한 불변 결정 목록 |
 | 작업 템플릿 | [`task-template.md`](task-template.md) | 향후 작은 Codex 작업 명세 양식 |
-| 다음 작업 | [`next-task.md`](next-task.md) | 다음 승인 단계인 H4 자동 스카우팅 실행 파이프라인 |
+| 다음 작업 | [`next-task.md`](next-task.md) | 다음 승인 단계인 H5 리크루팅 근거 강화 |
 
 보조 문서인 [`history-design.md`](history-design.md)와 [`recommendation-rule-matrix.md`](recommendation-rule-matrix.md)는 구현 위치를 설명하며, 업무 규칙이 충돌할 경우 항상 [`product-rules.md`](product-rules.md)가 우선합니다.
