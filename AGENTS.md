@@ -24,6 +24,7 @@
 - Work on one phase from [`docs/development-plan.md`](docs/development-plan.md) at a time.
 - Do not add an external integration unless the active phase explicitly requires it.
 - Keep YouTube.js/InnerTube execution server-only and behind the existing H3 provider contracts.
+- Do not connect a live recruitment-evidence source until an adopted decision record names the exact source and collection method; H5 source-type values and fictional fixtures are not live-source approval.
 - `YOUTUBE_PROVIDER=innertube` must not require an API key; only `YOUTUBE_PROVIDER=official` may require `YOUTUBE_API_KEY`.
 - Update [`docs/current-status.md`](docs/current-status.md) after meaningful implementation changes.
 - Preserve the three-field history export contract: `channel_name`, `url`, `status`.

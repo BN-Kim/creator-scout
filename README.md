@@ -56,4 +56,4 @@ npm run test:providers
 
 ## 현재 제한사항
 
-InnerTube는 YouTube의 내부 인터페이스 변화나 접근 제한으로 중단될 수 있으며, 현재 실행 결과 묶음은 서버 재시작 후 복구되지 않습니다. H5의 승인 출처 계약과 정규화 계층은 구현되었지만 실제 운영 연락·시청자 데이터 출처는 명시적 승인 없이 연결하지 않습니다. 운영용 외부 데이터베이스, 인증, 예약 작업, 배포 인프라와 AI 분석은 구현되어 있지 않습니다. 현재 SQLite는 단일 서버 파일 배포를 전제로 합니다.
+InnerTube는 YouTube의 내부 인터페이스 변화나 접근 제한으로 중단될 수 있으며, 현재 실행 결과 묶음은 서버 재시작 후 복구되지 않습니다. H5의 승인 출처 계약과 정규화 계층은 구현되었지만 H5.1 감사에서 승인된 실제 운영 연락·시청자 데이터 출처는 없었습니다. [`docs/decisions/008-live-recruitment-source-approval-required.md`](docs/decisions/008-live-recruitment-source-approval-required.md)의 제품 결정 전에는 라이브 클라이언트를 연결하지 않습니다. 운영용 외부 데이터베이스, 인증, 예약 작업, 배포 인프라와 AI 분석은 구현되어 있지 않습니다. 현재 SQLite는 단일 서버 파일 배포를 전제로 합니다.
