@@ -1,6 +1,6 @@
 import { findHistoryMatch, findSameRunMatch } from "@/server/history/history-matcher";
 import { classifyYoutubeUrl } from "@/server/history/url-classifier";
-import { reasonExplanations } from "@/server/rules/reason-codes";
+import { decisionReasonTexts, reasonExplanations } from "@/server/rules/reason-codes";
 import { evaluateRecentTraffic } from "@/server/rules/recent-traffic";
 import type { CreatorInput, EvaluationResult, HistoryRecord, ReasonCode, RecommendationSettings } from "@/types/domain";
 
@@ -17,11 +17,14 @@ export function evaluateCreator(input: CreatorInput, settings: RecommendationSet
   const e = input.evidence;
   const addHard = (condition: boolean, code: ReasonCode, label: string): void => { if (condition) { reasons.push(code); failed.push(label); } else passed.push(label); };
   addHard(e.channelExists === false, "channel_not_found", "채널 존재");
+  if (e.channelExists === null) missing.push("채널 존재 여부");
   const urlKind = input.identity.canonicalChannelUrl ? classifyYoutubeUrl(input.identity.canonicalChannelUrl) : "other";
   addHard(!input.identity.canonicalChannelUrl || !["channel", "handle"].includes(urlKind), "channel_url_unconfirmed", "채널 URL");
-  addHard(e.channelNameMatches === false, "channel_name_mismatch", "채널명 일치");
+  const exactChannelIdentity = input.identity.identityVerificationState === "confirmed" && Boolean(input.identity.youtubeChannelId?.trim());
+  if (!exactChannelIdentity) addHard(e.channelNameMatches === false, "channel_name_mismatch", "채널명 일치");
   addHard(input.identity.identityVerificationState === "unconfirmed", "identity_unclear", "신원 확인");
   addHard(e.videosExist === false, "no_videos", "영상 존재");
+  if (e.videosExist === null && e.recentVideoCount === null) missing.push("영상 존재 여부");
   if (e.latestUploadDate && e.latestUploadConfirmed === true) {
     const ageDays = Math.floor((now.getTime() - new Date(e.latestUploadDate).getTime()) / 86400000);
     addHard(ageDays > settings.maximumDaysSinceLatestUpload, "latest_upload_too_old", "최근 활동");
@@ -42,6 +45,10 @@ export function evaluateCreator(input: CreatorInput, settings: RecommendationSet
   addHard(e.managementRisk === true, "management_affiliation", "매니지먼트 없음");
   addHard(e.mcnRisk === true, "mcn_affiliation", "MCN 없음");
   addHard(e.labelRisk === true, "label_affiliation", "레이블 없음");
+  if (e.recruitmentEvidence.affiliationVerificationState === "conflicting") reasons.push("affiliation_conflict");
+  if (e.recruitmentSuitability !== true && e.recruitmentEvidence.koreanLanguageActivity.state !== "likely") {
+    missing.push("국내 활동 적합성");
+  }
   addHard(e.reuploadRisk === true, "reupload_channel", "재업로드 아님");
   addHard(e.compilationRisk === true || e.contentFarmRisk === true, "compilation_channel", "모음·콘텐츠 팜 채널 아님");
   const emailReason = emailExclusions[e.emailClassification]; if (emailReason) reasons.push(emailReason);
@@ -50,12 +57,12 @@ export function evaluateCreator(input: CreatorInput, settings: RecommendationSet
   if (e.emailClassification === "unknown") reasons.push("email_ownership_unknown");
   if (settings.maximumSubscriberCount !== undefined && e.subscriberCount !== null && e.subscriberCount > settings.maximumSubscriberCount) reasons.push("too_large");
   if (settings.minimumSubscriberCount === undefined && settings.maximumSubscriberCount === undefined) warnings.push(reasonExplanations.subscriber_threshold_not_configured);
-  for (const [field, value] of [["채널 존재", e.channelExists], ["채널명 일치", e.channelNameMatches], ["국내 시청자 적합", e.koreanAudienceSuitable], ["소속 여부", e.agencyRisk]] as const) if (value === null) missing.push(field);
   if (missing.length) reasons.push("missing_verification");
 
-  const hardCodes = reasons.filter((code) => !["missing_email", "email_not_checked", "email_ownership_unknown", "missing_verification", "subscriber_threshold_not_configured"].includes(code));
-  const decision = hardCodes.length ? "excluded" : reasons.some((code) => ["missing_email", "email_not_checked", "email_ownership_unknown", "missing_verification"].includes(code)) || e.emailClassification !== "personal" ? "hold" : "recommended";
+  const hardCodes = reasons.filter((code) => !["missing_email", "email_not_checked", "email_ownership_unknown", "affiliation_conflict", "missing_verification", "subscriber_threshold_not_configured"].includes(code));
+  const decision = hardCodes.length ? "excluded" : reasons.some((code) => ["missing_email", "email_not_checked", "email_ownership_unknown", "affiliation_conflict", "missing_verification"].includes(code)) || e.emailClassification !== "personal" ? "hold" : "recommended";
   const uniqueReasons = [...new Set(reasons)];
-  const explanation = uniqueReasons.length ? uniqueReasons.map((code) => reasonExplanations[code]).join(" ") : "모든 필수 검증 조건을 충족해 추천합니다.";
-  return { decision, reasonCodes: uniqueReasons, koreanExplanation: explanation, passedChecks: passed, failedChecks: failed, warningChecks: warnings, missingVerificationFields: [...new Set(missing)], historyMatch, sameRunMatch, manualCorrection: input.manualCorrection ?? null, evaluatedAt: now.toISOString() };
+  const missingVerificationFields = [...new Set(missing)];
+  const explanation = decisionReasonTexts(decision, uniqueReasons, missingVerificationFields).join(" ");
+  return { decision, reasonCodes: uniqueReasons, koreanExplanation: explanation, passedChecks: passed, failedChecks: failed, warningChecks: warnings, missingVerificationFields, historyMatch, sameRunMatch, manualCorrection: input.manualCorrection ?? null, evaluatedAt: now.toISOString() };
 }

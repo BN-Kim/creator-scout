@@ -12,6 +12,7 @@ import type { NormalizedChannelEvidence, RecentVideoEvidence, ResolvedYouTubeIde
 import { evaluateCreator } from "@/server/rules/evaluate-creator";
 import { AutomaticScoutingPipeline } from "@/server/scouting/automatic-scouting-pipeline";
 import type { AutomaticScoutingRunResult } from "@/server/scouting/automatic-scouting-types";
+import type { DiscoveryMode } from "@/server/discovery/discovery-types";
 import type { CreatorInputAssembler } from "@/server/scouting/creator-input-assembler";
 
 const FIXED_NOW = new Date("2026-07-22T06:00:00.000Z");
@@ -35,6 +36,8 @@ export async function runFictionalAutomaticScouting(
   historyRepository: HistoryRepository,
   runId = "automatic-h4-mock-run",
   targetRecommendedCount = 1,
+  discoveryMode: DiscoveryMode = "manual_replace",
+  manualQueries: string[] = ["H4 허구 자동 스카우팅"],
 ): Promise<AutomaticScoutingRunResult> {
   seedPriorHistory(historyRepository);
   const discoveredIds = [
@@ -89,8 +92,9 @@ export async function runFictionalAutomaticScouting(
   });
   return pipeline.run({
     runId,
-    query: "H4 허구 자동 스카우팅",
-    category: "뷰티",
+    discoveryMode,
+    manualQueries,
+    preferredCategory: "뷰티",
     targetRecommendedCount,
     recentVideoLimit: 5,
     settings: defaultRecommendationSettings,

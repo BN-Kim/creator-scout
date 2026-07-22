@@ -11,6 +11,7 @@
     "test:providers": "vitest run tests/providers",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
+    "history:repair-youtubejs-zero-videos": "node scripts/repair-youtubejs-zero-video-history.mjs",
     "typecheck": "tsc --noEmit",
     "verify": "npm run lint && npm run test && npm run typecheck && npm run build"
   },

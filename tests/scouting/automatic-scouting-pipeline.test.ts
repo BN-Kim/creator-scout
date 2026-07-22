@@ -22,6 +22,8 @@ import type {
 } from "@/server/providers/youtube/provider-types";
 import { evaluateCreator } from "@/server/rules/evaluate-creator";
 import { AutomaticScoutingPipeline } from "@/server/scouting/automatic-scouting-pipeline";
+import { InMemoryDiscoveryStateRepository } from "@/server/discovery/in-memory-discovery-state-repository";
+import type { DiscoveryStateRepository } from "@/server/discovery/discovery-state-repository";
 import type { AutomaticScoutingSafetyLimits } from "@/server/scouting/automatic-scouting-types";
 import type { CreatorInputAssembler } from "@/server/scouting/creator-input-assembler";
 import type { CreatorInput, HistoryRecord } from "@/types/domain";
@@ -76,6 +78,9 @@ describe("automatic scouting pipeline", () => {
 
     expect(result.results.map((creator) => creator.decision)).toEqual(["recommended", "hold", "excluded"]);
     expect(result.statistics).toEqual({
+      discoveryMode: "manual_replace",
+      queriesAttempted: 1,
+      pagesScanned: 2,
       targetRecommendedCount: 2,
       recommendationsFilled: 1,
       discovered: 3,
@@ -246,6 +251,9 @@ describe("automatic scouting pipeline", () => {
     const result = await harness.pipeline.run(request(5));
 
     expect(result.statistics).toEqual({
+      discoveryMode: "manual_replace",
+      queriesAttempted: 1,
+      pagesScanned: 2,
       targetRecommendedCount: 5,
       recommendationsFilled: 5,
       discovered: 10,
@@ -352,6 +360,54 @@ describe("automatic scouting pipeline", () => {
     expect(result.results.map((creator) => creator.identity.youtubeChannelId)).toEqual([CHANNEL_B]);
     expect(backingRepository.load().map((record) => record.identity.youtubeChannelId)).toEqual([CHANNEL_B]);
   });
+
+  it("learns discovery phrases from newly recommended creators only", async () => {
+    const repository = createRepository();
+    const discoveryState = new InMemoryDiscoveryStateRepository();
+    const recruitmentProvider: RecruitmentEvidenceProvider = {
+      collectEvidence: async () => ({
+        normalized: { ...fictionalRecruitmentEvidence(), exploratoryDiscoveryPhrases: ["직장인 뷰티 루틴"] },
+        raw: { fixture: true },
+      }),
+    };
+    const recommended = createHarness([CHANNEL_A], repository, {
+      assembler: scenarioAssembler(new Map([[CHANNEL_A, 0]])), recruitmentProvider, discoveryStateRepository: discoveryState,
+    });
+    await recommended.pipeline.run(request(1));
+    expect(discoveryState.listLearnedTerms()).toHaveLength(1);
+
+    const holdState = new InMemoryDiscoveryStateRepository();
+    const hold = createHarness([CHANNEL_B], createRepository(), {
+      assembler: scenarioAssembler(new Map([[CHANNEL_B, 1]])), recruitmentProvider, discoveryStateRepository: holdState,
+    });
+    await hold.pipeline.run(request(1));
+    expect(holdState.listLearnedTerms()).toEqual([]);
+  });
+
+  it("continues across automatically selected queries and keeps batches target-aware", async () => {
+    const repository = createRepository();
+    const discoveryState = new InMemoryDiscoveryStateRepository();
+    const ids = [CHANNEL_A, CHANNEL_B];
+    const calls: Array<{ query: string; maxResults: number }> = [];
+    const discoveryProvider: YouTubeCandidateDiscoveryProvider = {
+      discoverCandidates: async ({ query, maxResults }) => {
+        calls.push({ query, maxResults });
+        const channelId = ids[calls.length - 1];
+        return { candidates: channelId ? [{ ...candidate(channelId), sourceQuery: query }] : [], nextPageToken: null, raw: {} };
+      },
+    };
+    const harness = createHarness([], repository, {
+      discoveryProvider, discoveryStateRepository: discoveryState,
+      assembler: scenarioAssembler(new Map([[CHANNEL_A, 0], [CHANNEL_B, 0]])),
+    });
+    const result = await harness.pipeline.run({
+      runId: "h43-auto-multi-query", discoveryMode: "automatic", targetRecommendedCount: 2,
+      settings: defaultRecommendationSettings,
+    });
+    expect(result.statistics).toMatchObject({ discoveryMode: "automatic", queriesAttempted: 2, pagesScanned: 2, recommended: 2, stopReason: "target_reached" });
+    expect(calls.map((call) => call.maxResults)).toEqual([2, 1]);
+    expect(new Set(calls.map((call) => call.query)).size).toBe(2);
+  });
 });
 
 function createRepository(): SqliteHistoryRepository {
@@ -399,6 +455,7 @@ interface HarnessOptions {
   discoveryProvider?: YouTubeCandidateDiscoveryProvider;
   recruitmentProvider?: RecruitmentEvidenceProvider;
   now?: () => Date;
+  discoveryStateRepository?: DiscoveryStateRepository;
 }
 
 function createHarness(candidateIds: string[], repository: HistoryRepository, options: HarnessOptions = {}) {
@@ -466,6 +523,7 @@ function createHarness(candidateIds: string[], repository: HistoryRepository, op
       evidenceProvider,
       ...(recruitmentProvider ? { recruitmentEvidenceProvider: recruitmentProvider } : {}),
       historyRepository: repository,
+      ...(options.discoveryStateRepository ? { discoveryStateRepository: options.discoveryStateRepository } : {}),
       ...(options.useDefaultAssembler ? {} : { assembleCreatorInput: assembler }),
       now: options.now ?? (() => NOW),
     }),

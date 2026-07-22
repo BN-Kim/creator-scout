@@ -138,6 +138,12 @@ function validateChannelSnapshot(snapshot: InnerTubeChannelSnapshot, operation: 
 }
 
 function normalizeRecentVideos(snapshot: InnerTubeRecentVideosSnapshot): RecentVideoEvidenceResult {
+  if (snapshot.collectionState === "unavailable") {
+    throw providerError("get_recent_videos", "evidence_unavailable", true);
+  }
+  if (snapshot.collectionState === "unsupported" || snapshot.collectionState === "malformed") {
+    throw providerError("get_recent_videos", "provider_incompatible", false);
+  }
   const videos: NormalizedVideoEvidence[] = snapshot.videos.flatMap((video) => {
     if (!video.videoId.trim()) return [];
     const durationSeconds = validDuration(video.durationSeconds);

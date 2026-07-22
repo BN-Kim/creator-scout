@@ -58,6 +58,8 @@ export interface RecruitmentEvidence {
   affiliationVerificationState: RecruitmentVerificationState;
   koreanSuitability: KoreanSuitabilityEvidence;
   koreanLanguageActivity: KoreanLanguageActivityEvidence;
+  /** Safe, normalized public-metadata phrases eligible only for discovery exploration. */
+  exploratoryDiscoveryPhrases?: string[];
 }
 
 export interface KoreanLanguageActivityEvidence {
@@ -174,7 +176,7 @@ export type ReasonCode =
   | "company_channel" | "corporate_channel" | "brand_channel" | "agency_affiliation"
   | "management_affiliation" | "mcn_affiliation" | "label_affiliation" | "company_email"
   | "agency_email" | "management_email" | "mcn_email" | "label_email" | "missing_email"
-  | "email_not_checked" | "email_ownership_unknown" | "missing_verification"
+  | "email_not_checked" | "email_ownership_unknown" | "affiliation_conflict" | "missing_verification"
   | "subscriber_threshold_not_configured" | "reupload_channel" | "compilation_channel" | "too_large";
 
 export interface RecommendationSettings {
@@ -212,4 +214,13 @@ export interface ScoutingRun {
 }
 
 export interface HistoryExportRecord { channel_name: string; url: string; status: HistoryStatus; }
-export interface NewRunInput { name: string; category: string; keywords: string; targetRecommendedCount: number; maximumDaysSinceLatestUpload: number; minimumRecentAverageViews: number; minimumRecentVideoCount: number; }
+export interface NewRunInput {
+  name: string;
+  discoveryMode?: "automatic" | "manual_replace" | "manual_extend";
+  category: string;
+  keywords: string;
+  targetRecommendedCount: number;
+  maximumDaysSinceLatestUpload: number;
+  minimumRecentAverageViews: number;
+  minimumRecentVideoCount: number;
+}

@@ -135,6 +135,22 @@ describe("approved public recruitment evidence provider", () => {
 });
 
 describe("recruitment evidence decision mapping", () => {
+  it("uses likely Korean-language activity as domestic activity without inventing audience geography", async () => {
+    const recruitment = (await provider(response([])).collectEvidence(REQUEST)).normalized;
+    recruitment.koreanLanguageActivity = {
+      ...recruitment.koreanLanguageActivity,
+      recentTitleHangulPresenceRatio: 0.8,
+      hangulCharacterRatio: 0.5,
+      state: "likely",
+    };
+    const evidence = applyRecruitmentEvidence(mockCreatorInputs[0].evidence, recruitment);
+    expect(evidence).toMatchObject({
+      recruitmentSuitability: true,
+      koreanAudienceSuitable: null,
+      foreignAudienceRisk: null,
+    });
+  });
+
   it.each([
     ["company", "company_email"],
     ["agency", "agency_email"],

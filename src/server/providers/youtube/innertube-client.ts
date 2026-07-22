@@ -4,6 +4,7 @@ export type InnerTubeBridgeErrorCategory =
   | "invalid_input"
   | "not_found"
   | "response_invalid"
+  | "evidence_unavailable"
   | "access_restricted"
   | "provider_incompatible"
   | "temporary";
@@ -44,6 +45,7 @@ export interface InnerTubeDiscoverySnapshot {
 
 export interface InnerTubeRecentVideosSnapshot {
   videos: InnerTubeVideoSnapshot[];
+  collectionState: "available" | "confirmed_empty" | "unavailable" | "unsupported" | "malformed";
   unavailableVideoIds: string[];
   raw: unknown;
 }

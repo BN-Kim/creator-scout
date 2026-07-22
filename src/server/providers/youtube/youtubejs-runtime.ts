@@ -15,8 +15,8 @@ import {
   type InnerTubeClient,
   type InnerTubeDiscoverySnapshot,
   type InnerTubeRecentVideosSnapshot,
-  type InnerTubeVideoSnapshot,
 } from "@/server/providers/youtube/innertube-client";
+import { parseYouTubeJsVideoCollection } from "@/server/providers/youtube/youtubejs-video-normalization";
 
 interface ContinuationEntry {
   query: string;
@@ -64,7 +64,13 @@ class YouTubeJsRecruitmentSourceClient implements YouTubeRecruitmentSourceClient
       const channelTitle = readString(metadata, "title") ?? readText(header?.title);
       if (resolvedChannelId !== channelId || !channelTitle) throw new InnerTubeBridgeError("response_invalid");
       const videosPage = await channel.getVideos();
-      const cards = readArrayProperty(videosPage, "videos").flatMap(recruitmentVideoCard).slice(0, maxVideos);
+      const parsedVideos = parseYouTubeJsVideoCollection(videosPage);
+      if (["unavailable", "unsupported", "malformed"].includes(parsedVideos.state)) {
+        throw new InnerTubeBridgeError(parsedVideos.state === "unavailable" ? "evidence_unavailable" : "provider_incompatible");
+      }
+      const cards = parsedVideos.videos.flatMap((video): YouTubeRecruitmentVideo[] =>
+        video.title ? [{ videoId: video.videoId, title: video.title, description: null }] : [],
+      ).slice(0, maxVideos);
       const limit = pLimit(3);
       const recentVideos = await Promise.all(cards.map((card) => limit(() => this.videoDetails(card))));
       return {
@@ -146,8 +152,15 @@ class YouTubeJsInnerTubeClient implements InnerTubeClient {
     try {
       const channel = await this.innertube.getChannel(channelId);
       const raw = await channel.getVideos();
-      const videos = readArrayProperty(raw, "videos").flatMap(videoSnapshot).slice(0, maxResults);
-      return { videos, unavailableVideoIds: [], raw };
+      const parsed = parseYouTubeJsVideoCollection(raw);
+      return {
+        videos: parsed.videos.slice(0, maxResults).map(({ videoId, publishedAt, viewCountText, durationSeconds }) => ({
+          videoId, publishedAt, viewCountText, durationSeconds,
+        })),
+        collectionState: parsed.state,
+        unavailableVideoIds: [],
+        raw,
+      };
     } catch (error: unknown) {
       throw mapRuntimeError(error);
     }
@@ -201,26 +214,6 @@ function channelSnapshot(value: unknown): InnerTubeChannelSnapshot {
   };
 }
 
-function videoSnapshot(value: unknown): InnerTubeVideoSnapshot[] {
-  const record = asRecord(value);
-  const videoId = readString(record, "video_id") ?? readString(record, "id");
-  if (!videoId) return [];
-  const duration = asRecord(record?.duration);
-  return [{
-    videoId,
-    publishedAt: exactPublishedValue(record?.published),
-    viewCountText: readText(record?.view_count) ?? readText(record?.views) ?? readText(record?.short_view_count),
-    durationSeconds: readFiniteNumber(duration, "seconds") ?? durationFromText(readText(record?.length_text) ?? readText(record?.duration)),
-  }];
-}
-
-function recruitmentVideoCard(value: unknown): YouTubeRecruitmentVideo[] {
-  const record = asRecord(value);
-  const videoId = readString(record, "video_id") ?? readString(record, "id");
-  const title = readText(record?.title);
-  return videoId && title ? [{ videoId, title, description: null }] : [];
-}
-
 function extractOfficialLinks(
   metadata: Record<string, unknown> | null,
   header: Record<string, unknown> | null,
@@ -252,16 +245,6 @@ function externalPublicUrl(value: string): string | null {
   }
 }
 
-function exactPublishedValue(value: unknown): string | null {
-  const text = readText(value);
-  return text && !Number.isNaN(Date.parse(text)) ? text : null;
-}
-
-function durationFromText(value: string | null): number | null {
-  if (!value || !/^\d{1,3}(?::\d{1,2}){1,2}$/.test(value)) return null;
-  return value.split(":").map(Number).reduce((total, part) => total * 60 + part, 0);
-}
-
 function handleFromUrl(value: string | null): string | null {
   if (!value) return null;
   try {
@@ -285,11 +268,6 @@ function readText(value: unknown): string | null {
 function readString(record: Record<string, unknown> | null, property: string): string | null {
   const value = record?.[property];
   return typeof value === "string" && value.trim() ? value.trim() : null;
-}
-
-function readFiniteNumber(record: Record<string, unknown> | null, property: string): number | null {
-  const value = record?.[property];
-  return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
 function hasBooleanProperty(value: unknown, property: string): boolean {

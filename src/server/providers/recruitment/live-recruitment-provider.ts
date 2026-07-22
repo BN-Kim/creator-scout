@@ -22,6 +22,7 @@ import type {
 import { PublicOfficialSiteClient } from "@/server/providers/recruitment/public-web-client";
 import { classifyVisibleRecruitmentEvidence } from "@/server/providers/recruitment/visible-email-classifier";
 import { InnerTubeBridgeError } from "@/server/providers/youtube/innertube-client";
+import { extractSafeDiscoveryPhrases } from "@/server/discovery/learned-phrase-extractor";
 
 export type LiveRecruitmentProviderErrorCategory = "invalid_input" | "provider_incompatible";
 
@@ -102,6 +103,10 @@ export class LiveRecruitmentEvidenceProvider implements RecruitmentEvidenceProvi
     const approvedSourceIds = new Set(items.map((item) => item.source.sourceId));
     const normalized = normalizeApprovedRecruitmentEvidence(items, approvedSourceIds);
     normalized.koreanLanguageActivity = evaluateKoreanLanguageActivity(snapshot, checkedAt);
+    normalized.exploratoryDiscoveryPhrases = extractSafeDiscoveryPhrases([
+      snapshot.channelDescription ?? "",
+      ...snapshot.recentVideos.flatMap((video) => [video.title, video.description ?? ""]),
+    ], snapshot.channelTitle);
     return {
       normalized,
       raw: {

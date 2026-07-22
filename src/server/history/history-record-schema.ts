@@ -11,7 +11,7 @@ const reasonCodeSchema = z.enum([
   "overseas_based", "celebrity_channel", "official_channel", "company_channel", "corporate_channel",
   "brand_channel", "agency_affiliation", "management_affiliation", "mcn_affiliation", "label_affiliation",
   "company_email", "agency_email", "management_email", "mcn_email", "label_email", "missing_email",
-  "email_not_checked", "email_ownership_unknown", "missing_verification", "subscriber_threshold_not_configured",
+  "email_not_checked", "email_ownership_unknown", "affiliation_conflict", "missing_verification", "subscriber_threshold_not_configured",
   "reupload_channel", "compilation_channel", "too_large",
 ]);
 const manualCorrectionCodeSchema = z.enum([

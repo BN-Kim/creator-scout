@@ -25,6 +25,8 @@
 - Work on one phase from [`docs/development-plan.md`](docs/development-plan.md) at a time.
 - Do not add an external integration unless the active phase explicitly requires it.
 - Keep YouTube.js/InnerTube execution server-only and behind the existing H3 provider contracts.
+- Never normalize unavailable, unsupported, or malformed provider evidence to a confirmed numeric zero.
+- Exact stable YouTube channel-ID resolution satisfies identity verification; channel-name matching is not a second gate.
 - Live recruitment collection is limited to the exact public sources and methods adopted in decision 008; do not broaden the source set, guess URLs, or bypass access controls.
 - `YOUTUBE_PROVIDER=innertube` must not require an API key; only `YOUTUBE_PROVIDER=official` may require `YOUTUBE_API_KEY`.
 - Update [`docs/current-status.md`](docs/current-status.md) after meaningful implementation changes.

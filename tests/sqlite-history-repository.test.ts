@@ -20,10 +20,13 @@ afterEach(() => {
 describe("SQLite history repository", () => {
   it("applies the versioned schema migration", () => {
     const { database } = repository();
-    const migration = database.prepare("SELECT version, name FROM schema_migrations").get() as { version: number; name: string };
+    const migrations = database.prepare("SELECT version, name FROM schema_migrations ORDER BY version").all() as Array<{ version: number; name: string }>;
     const tables = database.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all().map((row) => (row as { name: string }).name);
-    expect(migration).toEqual({ version: 1, name: "create_history_records" });
-    expect(tables).toEqual(expect.arrayContaining(["history_records", "history_identity_keys"]));
+    expect(migrations).toEqual([
+      { version: 1, name: "create_history_records" },
+      { version: 2, name: "create_discovery_state" },
+    ]);
+    expect(tables).toEqual(expect.arrayContaining(["history_records", "history_identity_keys", "discovery_query_state", "discovery_learned_terms"]));
   });
 
   it("preserves decisions, evidence, run timestamps, and manual corrections", () => {

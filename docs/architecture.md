@@ -24,6 +24,7 @@
 | YouTube 공급자 계약·선택 | `src/server/providers/youtube/provider-contracts.ts`, `src/server/providers/youtube/create-provider.ts` |
 | YouTube 공급자 어댑터 | `src/server/providers/youtube/innertube-provider.ts`, `src/server/providers/youtube/youtube-data-api-provider.ts` |
 | 서버 전용 YouTube.js 브리지 | `src/server/providers/youtube/youtubejs-runtime.ts`, `src/server/providers/youtube/innertube-client.ts` |
+| YouTube.js 영상 카드 정규화 | `src/server/providers/youtube/youtubejs-video-normalization.ts` |
 | 공급자 오류·설정·로깅 | `src/server/providers/youtube/provider-error.ts`, `src/server/providers/youtube/provider-config.ts`, `src/server/providers/youtube/provider-logger.ts` |
 | 안정적 신원 정규화 | `src/server/providers/youtube/identity-input.ts` |
 | 히스토리 사전 확인·근거 변환 | `src/server/providers/youtube/history-prechecked-evidence.ts`, `src/server/providers/youtube/verification-evidence.ts` |
@@ -72,7 +73,11 @@ UI
 
 과거 일치는 판정 엔진이나 결과 그룹으로 보내지 않습니다. 따라서 비용이 큰 근거 수집, 새 `excluded` 결과와 추가 히스토리 쓰기가 발생하지 않습니다.
 
+YouTube.js 영상 목록은 런타임 객체와 판정 근거 사이의 별도 정규화 경계에서 처리합니다. LockupView의 `content_id`는 `content_type`이 VIDEO 또는 SHORT일 때만 영상 ID가 되며, CHANNEL·PLAYLIST는 영상이 아닙니다. 목록 상태는 `available`, `confirmed_empty`, `unavailable`, `unsupported`, `malformed`로 분리합니다. 마지막 세 상태는 어댑터에서 구조화된 공급자 실패가 되어 평가와 히스토리 저장에 도달하지 않습니다.
+
 H4.2 오케스트레이션은 발견 후보 수가 아니라 신규 `recommended` 수를 실행 목표로 사용합니다. 남은 추천 슬롯 이하의 후보만 발견·평가하고, `hold`와 `excluded`는 저장한 뒤 다음 후보를 계속 찾습니다. 중복과 실패는 목표에 포함하지 않으며 후보·페이지·시간·공급자 실패 상한 중 하나에 도달하거나 소스가 소진되면 구조화된 중단 사유와 부분 충족 통계를 반환합니다.
+
+H4.3은 H4.2 앞단에 `AdaptiveQuerySelector`를 둡니다. 서버에서 검증한 분류체계가 좁은·중간·넓은 한국어 검색어를 결정론적으로 만들고, `automatic`, `manual_replace`, `manual_extend` 모드가 선택 가능한 검색어 집합을 정합니다. 쿼리 본문, 정규화 키, 카테고리, 범위, 연속 페이지 토큰, 시도·페이지·중복·판정·실패 집계, 냉각·소진 상태는 SQLite `discovery_query_state`에 저장됩니다. 추천된 크리에이터의 공개 메타데이터에서 안전하게 정규화한 문구만 `discovery_learned_terms`에 탐색 상태로 저장됩니다. 최소 표본 전에는 검증된 상위 검색어가 될 수 없으며 성과가 나쁜 학습 문구는 냉각 또는 폐기됩니다. 이 점수와 상태는 발견 순서만 바꾸고 결정 엔진 입력이나 판정 임계값은 바꾸지 않습니다.
 
 H5 리크루팅 근거는 히스토리 선검사와 YouTube 근거 수집을 통과한 신규 신원에만 적용됩니다. 승인 출처 클라이언트의 원본 응답은 어댑터 경계에 남고, 출처 ID·공개 URL·확인 상태·확인 시각을 가진 정규화 연락·소속·국내 적합성 관측값만 `CreatorInput` 조합 경계에 전달됩니다. 미확인·누락·상충 값은 확정 값으로 승격하지 않으며, 확인된 조직 연락처와 소속은 기존 판정 필드에 매핑되어 기존 하드 게이트를 그대로 사용합니다.
 

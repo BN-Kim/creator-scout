@@ -1,9 +1,15 @@
 import type { EvaluatedCreator, RecommendationSettings } from "@/types/domain";
+import type { DiscoveryMode } from "@/server/discovery/discovery-types";
 
 export interface AutomaticScoutingRunRequest {
   runId: string;
-  query: string;
-  category: string;
+  discoveryMode?: DiscoveryMode;
+  manualQueries?: string[];
+  preferredCategory?: string;
+  /** Backward-compatible single-query input for existing H4 fixtures. */
+  query?: string;
+  /** Backward-compatible category input for existing H4 fixtures. */
+  category?: string;
   targetRecommendedCount: number;
   recentVideoLimit?: number;
   safetyLimits?: Partial<AutomaticScoutingSafetyLimits>;
@@ -26,6 +32,9 @@ export type AutomaticScoutingStopReason =
   | "provider_failure_limit_reached";
 
 export interface AutomaticScoutingStatistics {
+  discoveryMode: DiscoveryMode;
+  queriesAttempted: number;
+  pagesScanned: number;
   targetRecommendedCount: number;
   recommendationsFilled: number;
   discovered: number;

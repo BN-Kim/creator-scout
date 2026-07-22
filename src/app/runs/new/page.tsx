@@ -7,7 +7,10 @@ import { creatorCategories } from "@/config/labels";
 import { validateNewRun, type ValidationErrors } from "@/lib/validation";
 import type { NewRunInput } from "@/types/domain";
 
-const initialValues: NewRunInput = { name: "", category: "", keywords: "", targetRecommendedCount: 50, maximumDaysSinceLatestUpload: 56, minimumRecentAverageViews: 10000, minimumRecentVideoCount: 2 };
+const initialValues: NewRunInput = {
+  name: "", discoveryMode: "automatic", category: "", keywords: "", targetRecommendedCount: 50,
+  maximumDaysSinceLatestUpload: 56, minimumRecentAverageViews: 10000, minimumRecentVideoCount: 2,
+};
 
 export default function NewRunPage(): React.ReactNode {
   const router = useRouter();
@@ -16,6 +19,7 @@ export default function NewRunPage(): React.ReactNode {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const setField = <K extends keyof NewRunInput>(key: K, value: NewRunInput[K]): void => setValues((current) => ({ ...current, [key]: value }));
+
   const submit = async (event: React.FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
     if (submitting) return;
@@ -26,9 +30,7 @@ export default function NewRunPage(): React.ReactNode {
     setSubmitting(true);
     try {
       const response = await fetch("/api/runs/automatic", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(values),
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(values),
       });
       const body = await response.json() as { runId?: string; message?: string };
       if (!response.ok || !body.runId) throw new Error(body.message ?? "추천 실행을 시작하지 못했습니다.");
@@ -38,8 +40,59 @@ export default function NewRunPage(): React.ReactNode {
       setSubmitting(false);
     }
   };
-  return <><PageHeader title="새 추천 실행" description="검색 조건과 추천 완료 목표를 설정해 자동 스카우팅을 시작합니다." /><form onSubmit={submit} noValidate className="panel max-w-4xl p-5 sm:p-8">{submitError && <p role="alert" className="mb-6 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{submitError}</p>}<div className="grid gap-6 sm:grid-cols-2"><Field label="스카우팅 실행 이름" error={errors.name} wide><input className="input" value={values.name} onChange={(e) => setField("name", e.target.value)} placeholder="예: 8월 뷰티 신규 크리에이터" /></Field><Field label="크리에이터 카테고리" error={errors.category}><select className="input" value={values.category} onChange={(e) => setField("category", e.target.value)}><option value="">선택해 주세요</option>{creatorCategories.map((category) => <option key={category}>{category}</option>)}</select></Field><Field label="검색 키워드" error={errors.keywords}><input className="input" value={values.keywords} onChange={(e) => setField("keywords", e.target.value)} placeholder="쉼표로 여러 키워드 구분" /></Field><Field label="추천 완료 목표 수" error={errors.targetRecommendedCount} hint="신규 추천 인원"><NumberInput value={values.targetRecommendedCount} onChange={(value) => setField("targetRecommendedCount", value)} min={1} max={500} /></Field><Field label="최근 업로드 허용 최대 경과일" error={errors.maximumDaysSinceLatestUpload} hint="42~56일"><NumberInput value={values.maximumDaysSinceLatestUpload} onChange={(value) => setField("maximumDaysSinceLatestUpload", value)} min={42} max={56} /></Field><Field label="최소 최근 평균 조회수" error={errors.minimumRecentAverageViews} hint="조회수"><NumberInput value={values.minimumRecentAverageViews} onChange={(value) => setField("minimumRecentAverageViews", value)} min={0} /></Field><Field label="최소 최근 영상 수" error={errors.minimumRecentVideoCount} hint="영상 개수"><NumberInput value={values.minimumRecentVideoCount} onChange={(value) => setField("minimumRecentVideoCount", value)} min={2} /></Field></div><div className="mt-8 flex items-center justify-between border-t border-slate-200 pt-6"><p className="text-xs text-slate-500">추천 목표를 채울 때까지 신규 후보를 계속 탐색하며 보류·제외도 히스토리에 자동 저장합니다.</p><button className="button-primary" type="submit" disabled={submitting}>{submitting ? "처리 중…" : "추천 실행 만들기"}</button></div></form></>;
+
+  return <>
+    <PageHeader title="새 추천 실행" description="추천 목표만 입력해도 자동으로 다양한 카테고리와 검색 범위를 탐색합니다." />
+    <form onSubmit={submit} noValidate className="panel max-w-4xl p-5 sm:p-8">
+      {submitError && <p role="alert" className="mb-6 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{submitError}</p>}
+      <Field label="추천 목표 수" error={errors.targetRecommendedCount} hint="새 추천 완료 인원" wide>
+        <NumberInput value={values.targetRecommendedCount} onChange={(value) => setField("targetRecommendedCount", value)} min={1} max={500} />
+      </Field>
+      <details className="mt-7 rounded-xl border border-slate-200 p-4">
+        <summary className="focus-ring cursor-pointer rounded text-sm font-semibold text-slate-700">고급 검색 설정(선택)</summary>
+        <div className="mt-5 grid gap-6 sm:grid-cols-2">
+          <Field label="발견 모드" error={errors.discoveryMode}>
+            <select className="input" value={values.discoveryMode ?? "automatic"} onChange={(event) => setField("discoveryMode", event.target.value as NonNullable<NewRunInput["discoveryMode"]>)}>
+              <option value="automatic">자동 검색어만 사용</option>
+              <option value="manual_extend">자동 검색어에 직접 입력한 검색어 추가</option>
+              <option value="manual_replace">직접 입력한 검색어만 사용</option>
+            </select>
+          </Field>
+          <Field label="우선 카테고리" error={errors.category} hint="선택하지 않으면 전체">
+            <select className="input" value={values.category} onChange={(event) => setField("category", event.target.value)}>
+              <option value="">전체 승인 카테고리</option>
+              {creatorCategories.map((category) => <option key={category}>{category}</option>)}
+            </select>
+          </Field>
+          <Field label="추가 검색어" error={errors.keywords} hint="쉼표 또는 줄바꿈으로 구분" wide>
+            <textarea className="input min-h-24" value={values.keywords} onChange={(event) => setField("keywords", event.target.value)} placeholder="자동 모드에서는 비워 두세요" />
+          </Field>
+          <Field label="실행 이름" error={errors.name} hint="선택">
+            <input className="input" value={values.name} onChange={(event) => setField("name", event.target.value)} placeholder="비워 두면 자동 생성" />
+          </Field>
+          <Field label="최근 업로드 허용 최대 경과일" error={errors.maximumDaysSinceLatestUpload} hint="42~56일">
+            <NumberInput value={values.maximumDaysSinceLatestUpload} onChange={(value) => setField("maximumDaysSinceLatestUpload", value)} min={42} max={56} />
+          </Field>
+          <Field label="최소 최근 평균 조회수" error={errors.minimumRecentAverageViews} hint="조회수">
+            <NumberInput value={values.minimumRecentAverageViews} onChange={(value) => setField("minimumRecentAverageViews", value)} min={0} />
+          </Field>
+          <Field label="최소 최근 영상 수" error={errors.minimumRecentVideoCount} hint="영상 개수">
+            <NumberInput value={values.minimumRecentVideoCount} onChange={(value) => setField("minimumRecentVideoCount", value)} min={2} />
+          </Field>
+        </div>
+      </details>
+      <div className="mt-8 flex flex-col gap-4 border-t border-slate-200 pt-6 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-xs text-slate-500">중복·보류·제외·실패는 추천 목표에 포함되지 않습니다.</p>
+        <button className="button-primary" type="submit" disabled={submitting}>{submitting ? "처리 중…" : "추천 실행 시작"}</button>
+      </div>
+    </form>
+  </>;
 }
 
-function Field({ label, error, hint, wide, children }: { label: string; error?: string; hint?: string; wide?: boolean; children: React.ReactNode }): React.ReactNode { return <label className={wide ? "sm:col-span-2" : ""}><span className="mb-2 flex items-center justify-between text-sm font-semibold text-slate-700"><span>{label}</span>{hint && <span className="text-xs font-normal text-slate-400">{hint}</span>}</span>{children}{error && <span className="mt-1.5 block text-xs font-medium text-rose-600">{error}</span>}</label>; }
-function NumberInput({ value, onChange, min, max }: { value: number; onChange: (value: number) => void; min: number; max?: number }): React.ReactNode { return <input type="number" className="input" value={value} min={min} max={max} onChange={(e) => onChange(Number(e.target.value))} />; }
+function Field({ label, error, hint, wide, children }: { label: string; error?: string; hint?: string; wide?: boolean; children: React.ReactNode }): React.ReactNode {
+  return <label className={wide ? "sm:col-span-2" : ""}><span className="mb-2 flex items-center justify-between gap-3 text-sm font-semibold text-slate-700"><span>{label}</span>{hint && <span className="text-xs font-normal text-slate-400">{hint}</span>}</span>{children}{error && <span className="mt-1.5 block text-xs font-medium text-rose-600">{error}</span>}</label>;
+}
+
+function NumberInput({ value, onChange, min, max }: { value: number; onChange: (value: number) => void; min: number; max?: number }): React.ReactNode {
+  return <input type="number" className="input" value={value} min={min} max={max} onChange={(event) => onChange(Number(event.target.value))} />;
+}

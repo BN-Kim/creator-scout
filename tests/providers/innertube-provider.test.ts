@@ -12,6 +12,7 @@ import {
   type InnerTubeRecentVideosSnapshot,
 } from "@/server/providers/youtube/innertube-client";
 import { InnerTubeYouTubeProvider, parsePublicCount } from "@/server/providers/youtube/innertube-provider";
+import { createVerificationEvidence } from "@/server/providers/youtube/verification-evidence";
 import type { InnerTubeProviderConfig } from "@/server/providers/youtube/provider-config";
 import { YouTubeProviderError } from "@/server/providers/youtube/provider-error";
 import { YouTubeDataApiProvider } from "@/server/providers/youtube/youtube-data-api-provider";
@@ -104,7 +105,7 @@ describe("InnerTube H3 evidence adapter", () => {
   it("does not invent missing or hidden public metrics", async () => {
     const client = new FictionalInnerTubeClient({
       channel: { ...fictionalChannel(), subscriberText: null, publicVideoCountText: "hidden" },
-      videos: { videos: [], unavailableVideoIds: ["fictional-hidden-video"], raw: { fixture: true } },
+      videos: { videos: [], collectionState: "confirmed_empty", unavailableVideoIds: ["fictional-hidden-video"], raw: { fixture: true } },
     });
     const provider = providerFor(client);
     const identity = (await provider.resolveIdentity({ kind: "channel_id", value: CHANNEL_ID })).identity;
@@ -116,6 +117,7 @@ describe("InnerTube H3 evidence adapter", () => {
     expect(channel.normalized.publicVideoCount).toBeNull();
     expect(recent.normalized.videos).toEqual([]);
     expect(recent.normalized.unavailableVideoIds).toEqual(["fictional-hidden-video"]);
+    expect(createVerificationEvidence(channel.normalized, recent.normalized, NOW).recentVideoCount).toBe(0);
   });
 
   it("supports stable channel IDs, handles, and supported profile URLs", async () => {
@@ -208,6 +210,42 @@ describe("InnerTube H4 pipeline integration", () => {
     expect({ channel: client.calls.channel, videos: client.calls.videos }).toEqual(expensiveCallsAfterFirst);
     expect(repository.load()).toHaveLength(1);
   });
+
+  it("does not evaluate or persist an unsupported recent-video response", async () => {
+    const repository = createRepository();
+    const client = new FictionalInnerTubeClient({
+      videos: {
+        videos: [],
+        collectionState: "unsupported",
+        unavailableVideoIds: [],
+        raw: { changed_shape: "fictional" },
+      },
+    });
+    const provider = providerFor(client);
+    const pipeline = new AutomaticScoutingPipeline({
+      discoveryProvider: provider,
+      identityProvider: provider,
+      evidenceProvider: provider,
+      historyRepository: repository,
+      now: () => NOW,
+    });
+    const result = await pipeline.run({
+      runId: "innertube-incompatible-fictional-run",
+      query: "허구 비호환 응답",
+      category: "뷰티",
+      targetRecommendedCount: 1,
+      recentVideoLimit: 5,
+      settings: defaultRecommendationSettings,
+    });
+
+    expect(result.results).toEqual([]);
+    expect(result.statistics).toMatchObject({ evaluated: 0, failed: 1, recommended: 0, hold: 0, excluded: 0 });
+    expect(result.failures).toContainEqual(expect.objectContaining({
+      stage: "evidence_collection",
+      category: "provider_incompatible",
+    }));
+    expect(repository.load()).toEqual([]);
+  });
 });
 
 function providerConfig(overrides: Partial<InnerTubeProviderConfig> = {}): InnerTubeProviderConfig {
@@ -240,6 +278,7 @@ function fictionalVideos(raw: unknown = { fixture: "fictional-videos-raw" }): In
       { videoId: "fictional-video-1", publishedAt: "2026-07-20T00:00:00Z", viewCountText: "15K views", durationSeconds: 600 },
       { videoId: "fictional-video-2", publishedAt: "3 days ago", viewCountText: null, durationSeconds: null },
     ],
+    collectionState: "available",
     unavailableVideoIds: ["fictional-deleted-video"],
     raw,
   };

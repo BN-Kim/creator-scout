@@ -43,22 +43,20 @@ test("필수 경로가 모두 성공적으로 로드된다", async ({ page }) =>
   }
 });
 
-test("새 추천 실행 폼은 무효 입력을 막고 유효 입력을 상세 화면으로 이동시킨다", async ({ page }) => {
+test("새 추천 실행 폼은 추천 목표만으로 자동 실행을 시작한다", async ({ page }) => {
   await page.goto("/runs/new");
-  await page.getByRole("button", { name: "추천 실행 만들기" }).click();
-  await expect(page.getByText("실행 이름을 입력해 주세요.")).toBeVisible();
-  await expect(page.getByText("카테고리를 선택해 주세요.")).toBeVisible();
-  await expect(page.getByText("검색 키워드를 입력해 주세요.")).toBeVisible();
+  await page.getByLabel("추천 목표 수").fill("0");
+  await page.getByRole("button", { name: "추천 실행 시작" }).click();
+  await expect(page.getByText("1~500 사이의 추천 목표를 입력해 주세요.")).toBeVisible();
 
-  await page.getByLabel("스카우팅 실행 이름").fill("H1 목 스모크 실행");
-  await page.getByLabel("크리에이터 카테고리").selectOption({ label: "뷰티" });
-  await page.getByLabel("검색 키워드").fill("허구 목 키워드");
-  await page.getByRole("button", { name: "추천 실행 만들기" }).click();
+  await page.getByLabel("추천 목표 수").fill("1");
+  await page.getByRole("button", { name: "추천 실행 시작" }).click();
 
   await expect(page).toHaveURL(/\/runs\/automatic-[a-f0-9-]+$/);
   await expect(page.getByRole("heading", { name: "자동 추천 실행" })).toBeVisible();
-  await expect(page.getByRole("status")).toContainText("1 / 50명 충족");
-  await expect(page.getByRole("status")).toContainText("부분 완료");
+  await expect(page.getByRole("region", { name: "실행 통계" })).toContainText("발견 모드자동");
+  await expect(page.getByRole("status")).toContainText("1 / 1명 충족");
+  await expect(page.getByRole("status")).toContainText("추천 목표를 모두 충족했습니다.");
 });
 
 test("추천·보류·제외가 렌더링되고 각 크리에이터는 한 그룹에만 존재한다", async ({ page }) => {
@@ -75,6 +73,23 @@ test("추천·보류·제외가 렌더링되고 각 크리에이터는 한 그�
 
   const allNames = [...recommendedNames, ...holdNames, ...excludedNames];
   expect(new Set(allNames).size).toBe(allNames.length);
+});
+
+test("제외 사유와 보류의 정확한 미확인 근거를 분리해 표시한다", async ({ page }) => {
+  await openMockRun(page);
+  const sections = page.locator("main section.panel");
+
+  await sections.nth(2).getByRole("button", { name: "목 크리에이터 07", exact: true }).click();
+  const excludedDialog = page.getByRole("dialog");
+  await expect(excludedDialog.getByRole("heading", { name: "제외 사유" })).toBeVisible();
+  await expect(excludedDialog).not.toContainText("보류되었습니다");
+  await expect(excludedDialog.getByRole("heading", { name: "미확인·미점검 근거" })).toBeVisible();
+  await excludedDialog.getByRole("button", { name: "상세 패널 닫기" }).click();
+
+  await sections.nth(1).getByRole("button", { name: "목 크리에이터 05", exact: true }).click();
+  const holdDialog = page.getByRole("dialog");
+  await expect(holdDialog.getByRole("heading", { name: "보류 사유" })).toBeVisible();
+  await expect(holdDialog).toContainText("대표 최근 조회수 확인이 필요합니다.");
 });
 
 test("완료된 목 실행이 모든 브라우저에서 조회되는 서버 히스토리를 자동 갱신한다", async ({ page, browser }) => {
@@ -136,6 +151,8 @@ test("H4 자동 실행은 신규 결과만 표시하고 반복 실행에도 히�
   await page.goto("/runs/automatic-h4-mock-run");
   await expect(page.getByRole("heading", { name: "자동 추천 실행" })).toBeVisible();
   const stats = page.getByRole("region", { name: "실행 통계" });
+  await expect(stats).toContainText("발견 모드직접 입력만");
+  await expect(stats).toContainText("시도한 검색어1");
   await expect(stats).toContainText("추천 목표1");
   await expect(stats).toContainText("추천 충족1");
   await expect(stats).toContainText("발견6");

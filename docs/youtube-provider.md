@@ -21,6 +21,8 @@ InnerTube 실행은 `youtubejs-runtime.ts`에서만 `youtubei.js`를 로드합�
 
 성공한 확인은 반드시 안정적인 YouTube 채널 ID, `youtube.com/channel/{channelId}` 정규 URL, 확인된 채널명과 가능한 경우 핸들을 반환합니다. 검색 URL, 영상 URL, 임의 `/c/` URL, 외부 도메인과 채널명은 안정적 신원으로 사용하지 않습니다. 채널명 일치는 히스토리 사전 확인에도 사용하지 않습니다.
 
+YouTube.js LockupView 영상 카드는 `video_id`, `id`, 그리고 VIDEO/SHORT `content_type`에 한정한 `content_id`를 지원합니다. CHANNEL·PLAYLIST와 그 밖의 콘텐츠 유형은 영상으로 취급하지 않습니다. 확정 빈 목록만 0이며 사용 불가 응답은 `evidence_unavailable`, 비지원·형식 오류 응답은 `provider_incompatible`로 실패해 판정과 저장을 수행하지 않습니다.
+
 ## 원본과 정규화 경계
 
 모든 공급자 결과는 `raw`와 정규화 결과를 별도 필드로 반환합니다. YouTube.js 파서 객체 접근은 런타임 브리지가 안정적인 원시 스냅샷으로 격리하고, H3 어댑터는 이 스냅샷만 도메인 근거로 변환합니다. 원본 응답은 판정 엔진에 직접 전달하지 않습니다. 숨겨진 구독자 수, 상대 날짜, 누락 조회수·지속시간, 삭제되었거나 조회할 수 없는 영상은 각각 `null` 또는 `unavailableVideoIds`로 보존합니다.

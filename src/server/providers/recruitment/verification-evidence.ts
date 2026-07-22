@@ -20,6 +20,10 @@ export function applyRecruitmentEvidence(
     ),
   );
   const suitability = recruitment.koreanSuitability;
+  const domesticActivitySatisfied = (suitability.verificationState === "confirmed" && suitability.domesticActivitySuitable === true)
+    || recruitment.koreanLanguageActivity.state === "likely";
+  const domesticActivityRejected = suitability.verificationState === "confirmed" && suitability.domesticActivitySuitable === false
+    && recruitment.koreanLanguageActivity.state === "unlikely";
   return {
     ...base,
     visibleEmail: hasContactConflict ? null : contact?.email ?? null,
@@ -32,9 +36,7 @@ export function applyRecruitmentEvidence(
     companyChannelRisk: hasAffiliation(organizationAffiliations, "company") ? true : base.companyChannelRisk,
     koreanAudienceSuitable: suitability.verificationState === "confirmed" ? suitability.koreanAudienceSuitable : null,
     foreignAudienceRisk: suitability.verificationState === "confirmed" ? suitability.foreignAudienceRisk : null,
-    recruitmentSuitability: suitability.verificationState === "confirmed"
-      ? suitability.koreanAudienceSuitable === true && suitability.domesticActivitySuitable === true
-      : null,
+    recruitmentSuitability: domesticActivitySatisfied ? true : domesticActivityRejected ? false : null,
     recruitmentEvidence: recruitment,
   };
 }

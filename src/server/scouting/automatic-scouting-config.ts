@@ -7,6 +7,8 @@ export const defaultAutomaticScoutingSafetyLimits: AutomaticScoutingSafetyLimits
   maxProviderFailures: 100,
 };
 
+export const exhaustedDiscoveryQueryCooldownMs = 7 * 24 * 60 * 60 * 1_000;
+
 export function loadAutomaticScoutingSafetyLimits(
   environment: NodeJS.ProcessEnv = process.env,
 ): AutomaticScoutingSafetyLimits {

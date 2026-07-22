@@ -8,4 +8,11 @@ describe("configuration and form validation", () => {
   it("accepts valid run input", () => expect(validateNewRun(validInput)).toEqual({}));
   it("restricts the activity window to 42 through 56 days", () => { expect(validateNewRun({ ...validInput, maximumDaysSinceLatestUpload: 41 }).maximumDaysSinceLatestUpload).toBeDefined(); expect(validateNewRun({ ...validInput, maximumDaysSinceLatestUpload: 57 }).maximumDaysSinceLatestUpload).toBeDefined(); });
   it("rejects invalid runtime configuration", () => expect(() => recommendationSettingsSchema.parse({})).toThrow());
+  it("allows automatic runs with only the recommendation target", () => expect(validateNewRun({
+    ...validInput, discoveryMode: "automatic", name: "", category: "", keywords: "",
+  })).toEqual({}));
+  it("requires keywords only for manual discovery modes", () => {
+    expect(validateNewRun({ ...validInput, discoveryMode: "manual_replace", keywords: "" }).keywords).toBeDefined();
+    expect(validateNewRun({ ...validInput, discoveryMode: "manual_extend", keywords: "" }).keywords).toBeDefined();
+  });
 });

@@ -1,0 +1,103 @@
+import type { DiscoveryStateRepository } from "@/server/discovery/discovery-state-repository";
+import { createManualQueries, generateTaxonomyQueries, isSafeDiscoveryQuery, normalizeDiscoveryQuery } from "@/server/discovery/discovery-taxonomy";
+import type { DiscoveryMode, DiscoveryQueryDefinition, DiscoveryQueryState, DiscoveryScope } from "@/server/discovery/discovery-types";
+import { minimumProvenQuerySample, scoreDiscoveryQuery } from "@/server/discovery/query-quality";
+
+export interface AdaptiveQuerySelectorOptions {
+  mode: DiscoveryMode;
+  manualQueries: readonly string[];
+  preferredCategory?: string;
+}
+
+export class AdaptiveQuerySelector {
+  private readonly attemptedThisRun = new Set<string>();
+  private lastCategory: string | null = null;
+  private selectionCount = 0;
+
+  constructor(
+    private readonly repository: DiscoveryStateRepository,
+    private readonly options: AdaptiveQuerySelectorOptions,
+    private readonly now: () => Date,
+  ) {}
+
+  initialize(): void {
+    const now = this.now();
+    for (const state of this.repository.listQueries()) {
+      if (state.exhausted && state.cooldownUntil && Date.parse(state.cooldownUntil) <= now.getTime()) {
+        this.repository.setCooldown(state.normalizedKey, null, false, now.toISOString());
+      }
+    }
+    const automatic = this.options.mode === "manual_replace" ? [] : generateTaxonomyQueries();
+    const manual = this.options.mode === "automatic" ? [] : createManualQueries(this.options.manualQueries, this.options.preferredCategory);
+    const nowMs = now.getTime();
+    const learned = this.options.mode === "manual_replace" ? [] : this.repository.listLearnedTerms()
+      .filter((term) => term.state !== "retired"
+        && (term.state !== "cooldown" || !term.cooldownUntil || Date.parse(term.cooldownUntil) <= nowMs)
+        && isSafeDiscoveryQuery(term.phrase))
+      .map((term): DiscoveryQueryDefinition => ({
+        query: term.phrase,
+        normalizedKey: normalizeDiscoveryQuery(term.phrase),
+        category: term.category,
+        scope: "narrow",
+        origin: "learned",
+      }));
+    this.repository.ensureQueries([...automatic, ...manual, ...learned], now.toISOString());
+  }
+
+  next(recommendationsFilled: number): DiscoveryQueryState | null {
+    const nowMs = this.now().getTime();
+    const manualKeys = new Set(createManualQueries(this.options.manualQueries, this.options.preferredCategory).map((query) => query.normalizedKey));
+    const states = this.repository.listQueries().filter((state) =>
+      isAllowedForMode(state, this.options.mode, manualKeys)
+      && !state.exhausted
+      && !this.attemptedThisRun.has(state.normalizedKey)
+      && (!state.cooldownUntil || Date.parse(state.cooldownUntil) <= nowMs),
+    );
+    if (states.length === 0) return null;
+    const availableScopes = scopeOrder(recommendationsFilled, states);
+    const scoped = states.filter((state) => availableScopes.includes(state.scope));
+    const strategy = this.selectionCount % 3;
+    const strategicPool = scoped.filter((state) => strategy === 0
+      ? scoreDiscoveryQuery(state).proven
+      : strategy === 1
+        ? state.candidatesScanned > 0 && state.candidatesScanned < minimumProvenQuerySample
+        : state.candidatesScanned === 0);
+    const ranked = [...(strategicPool.length > 0 ? strategicPool : scoped)].sort((left, right) => compareQueries(left, right, this.lastCategory));
+    const selected = ranked[0];
+    this.selectionCount += 1;
+    this.attemptedThisRun.add(selected.normalizedKey);
+    this.lastCategory = selected.category;
+    return selected;
+  }
+
+  allowContinuation(state: DiscoveryQueryState): void {
+    this.attemptedThisRun.delete(state.normalizedKey);
+  }
+}
+
+function isAllowedForMode(state: DiscoveryQueryState, mode: DiscoveryMode, manualKeys: ReadonlySet<string>): boolean {
+  if (mode === "manual_replace") return manualKeys.has(state.normalizedKey);
+  if (mode === "manual_extend") return manualKeys.has(state.normalizedKey) || state.origin === "taxonomy" || state.origin === "learned";
+  return state.origin === "taxonomy" || state.origin === "learned";
+}
+
+function scopeOrder(recommendationsFilled: number, states: readonly DiscoveryQueryState[]): DiscoveryScope[] {
+  const hasNarrow = states.some((state) => state.scope === "narrow");
+  if (hasNarrow && recommendationsFilled === 0) return ["narrow"];
+  const hasMedium = states.some((state) => state.scope === "medium");
+  if (hasMedium) return ["narrow", "medium"];
+  return ["narrow", "medium", "broad"];
+}
+
+function compareQueries(left: DiscoveryQueryState, right: DiscoveryQueryState, lastCategory: string | null): number {
+  const leftScore = scoreDiscoveryQuery(left);
+  const rightScore = scoreDiscoveryQuery(right);
+  const leftDiversity = left.category === lastCategory ? 1 : 0;
+  const rightDiversity = right.category === lastCategory ? 1 : 0;
+  if (leftDiversity !== rightDiversity) return leftDiversity - rightDiversity;
+  if (leftScore.proven !== rightScore.proven) return Number(rightScore.proven) - Number(leftScore.proven);
+  if (leftScore.proven && leftScore.score !== rightScore.score) return rightScore.score - leftScore.score;
+  if (left.candidatesScanned !== right.candidatesScanned) return left.candidatesScanned - right.candidatesScanned;
+  if (left.pagesScanned !== right.pagesScanned) return left.pagesScanned - right.pagesScanned;
+  return left.normalizedKey.localeCompare(right.normalizedKey, "ko-KR");
+}

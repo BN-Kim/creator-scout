@@ -8,6 +8,7 @@ export type YouTubeProviderErrorCategory =
   | "timeout"
   | "temporary"
   | "response_invalid"
+  | "evidence_unavailable"
   | "access_restricted"
   | "provider_incompatible";
 
