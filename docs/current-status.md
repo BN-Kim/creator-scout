@@ -15,7 +15,9 @@
 - `HistoryRepository`와 브라우저 `localStorage` 구현
 - 24개 허구 목 시나리오
 - 8개 테스트 파일의 62개 단위·하네스 계약 테스트
+- Playwright Chromium 기반 H1 UI 스모크 테스트 6개
 - `npm run verify` 통합 검증 명령
+- `npm run test:e2e` 독립 브라우저 검증 명령과 자동 개발 서버 시작
 
 ## 미구현
 
@@ -38,4 +40,4 @@
 - 최근 조회 평가기는 공급된 조회수 배열이 이미 비교 가능한 동일 형식 표본이라고 가정하며, 영상별 Shorts·롱폼 형식을 자동 분할하지 않습니다.
 - 실제 과거 크리에이터 목록은 가져오지 않았습니다.
 
-현재 안전 기준선과 명령은 [`verification.md`](verification.md)에 기록합니다. 다음 권장 작업은 [`next-task.md`](next-task.md)의 H1 UI 스모크 테스트입니다.
+H1은 필수 경로, 폼 제출, 세 판정 표시, 자동 히스토리, 수동 교정과 반복 동작의 중복 방지를 브라우저 수준에서 검증해 완료했습니다. 현재 안전 기준선과 명령은 [`verification.md`](verification.md)에 기록합니다. 다음 승인 단계는 [`next-task.md`](next-task.md)의 H2 서버 영속 히스토리입니다.

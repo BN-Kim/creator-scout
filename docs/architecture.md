@@ -20,6 +20,7 @@
 | 결과 그룹화 | `src/server/output/group-results.ts` |
 | 목 입력 데이터 | `src/data/creators.ts`, `src/data/scouting-runs.ts`, `src/data/recommendation-settings.ts` |
 | 단위·계약 테스트 | `tests/*.test.ts`, `tests/contracts/*.test.ts` |
+| 브라우저 UI 스모크 테스트 | `playwright.config.ts`, `tests/e2e/smoke.spec.ts` |
 | 문서 하네스 | `AGENTS.md`, `README.md`, `docs/*` |
 
 ## 의존 방향
