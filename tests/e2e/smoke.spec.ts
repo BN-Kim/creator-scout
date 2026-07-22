@@ -1,6 +1,6 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 
-const requiredRoutes = ["/", "/runs/new", "/runs/mock-new-run", "/runs/automatic-h4-mock-run", "/history", "/settings"] as const;
+const requiredRoutes = ["/", "/runs/new", "/runs/mock-new-run", "/runs/automatic-h4-mock-run", "/history", "/settings", "/operations"] as const;
 
 async function resetBrowserStorage(page: Page): Promise<void> {
   await page.goto("/");
@@ -180,4 +180,26 @@ test("H4 자동 실행은 신규 결과만 표시하고 반복 실행에도 히�
   const repeatedHistory = await historyRecords(page);
   expect(repeatedHistory).toHaveLength(4);
   expect(new Set(repeatedHistory.map((record) => record.id)).size).toBe(4);
+});
+
+test("H6 운영 화면은 중지·재개와 예약 활성 상태를 제어한다", async ({ page }) => {
+  await page.goto("/operations");
+  await expect(page.getByRole("heading", { name: "운영 제어" })).toBeVisible();
+  const status = page.getByRole("region", { name: "운영 상태" });
+  await expect(status).toContainText("운영 중");
+  await page.getByRole("button", { name: "운영 중지" }).click();
+  await expect(status).toContainText("운영 중지");
+  await expect(page.getByRole("status")).toContainText("운영을 중지했습니다.");
+  await page.getByRole("button", { name: "운영 재개" }).click();
+  await expect(status).toContainText("운영 중");
+
+  await page.getByLabel("예약 이름").fill("H6 허구 정기 실행");
+  await page.getByLabel("실행 간격(분)").fill("60");
+  await page.getByLabel("추천 목표 수").fill("3");
+  await page.getByRole("button", { name: "예약 저장" }).click();
+  const row = page.getByRole("row").filter({ hasText: "H6 허구 정기 실행" });
+  await expect(row).toContainText("60분");
+  await expect(row).toContainText("3명");
+  await row.getByRole("button", { name: "예약 중지" }).click();
+  await expect(row.getByRole("button", { name: "예약 활성화" })).toBeVisible();
 });

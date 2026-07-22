@@ -9,8 +9,8 @@
     "lint": "next lint",
     "test": "vitest run",
     "test:providers": "vitest run tests/providers",
-    "test:e2e": "playwright test",
-    "test:e2e:headed": "playwright test --headed",
+    "test:e2e": "node scripts/run-playwright.mjs",
+    "test:e2e:headed": "node scripts/run-playwright.mjs --headed",
     "history:repair-youtubejs-zero-videos": "node scripts/repair-youtubejs-zero-video-history.mjs",
     "typecheck": "tsc --noEmit",
     "verify": "npm run lint && npm run test && npm run typecheck && npm run build"

@@ -25,8 +25,12 @@ describe("SQLite history repository", () => {
     expect(migrations).toEqual([
       { version: 1, name: "create_history_records" },
       { version: 2, name: "create_discovery_state" },
+      { version: 3, name: "create_operational_scheduler" },
     ]);
-    expect(tables).toEqual(expect.arrayContaining(["history_records", "history_identity_keys", "discovery_query_state", "discovery_learned_terms"]));
+    expect(tables).toEqual(expect.arrayContaining([
+      "history_records", "history_identity_keys", "discovery_query_state", "discovery_learned_terms",
+      "operation_control", "scheduled_scouting_jobs", "operation_leases", "scouting_run_executions", "operational_events",
+    ]));
   });
 
   it("preserves decisions, evidence, run timestamps, and manual corrections", () => {

@@ -11,6 +11,7 @@ const navItems = [
   { href: "/runs/run-20260722-beauty", label: "추천 실행 기록", icon: "runs" as const },
   { href: "/history", label: "크리에이터 히스토리", icon: "history" as const },
   { href: "/settings", label: "설정", icon: "settings" as const },
+  { href: "/operations", label: "운영 제어", icon: "runs" as const },
 ];
 
 export function AppNavigation(): React.ReactNode {
