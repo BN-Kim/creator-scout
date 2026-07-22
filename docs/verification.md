@@ -24,3 +24,11 @@ npm run test:e2e
 Playwright는 테스트마다 독립 브라우저 컨텍스트를 만들고 테스트 시작 시 `localStorage`와 `sessionStorage`를 초기화합니다. 실패 시 `test-results`에 스크린샷과 트레이스를 남깁니다.
 
 H2부터 Playwright 서버는 `.data/e2e-history.sqlite`를 사용하고 E2E 전용 보호 경로로 각 테스트 전에 서버 히스토리를 초기화합니다. 일반 실행에서는 이 초기화 경로가 404를 반환합니다. SQLite 마이그레이션 버전, 전체 필드 보존, 신원 보강과 반복·경합 쓰기 계약은 `tests/sqlite-history-repository.test.ts`가 검증합니다.
+
+H3 공급자 계층은 실제 네트워크와 키 없이 별도로 실행할 수 있습니다.
+
+```bash
+npm run test:providers
+```
+
+테스트는 허구 신원과 목 YouTube 응답만 사용하며 신원 정규화, 근거 변환, SQLite 사전 확인, 누락 데이터, 길이 표본, 페이지네이션, 타임아웃·재시도·오류 분류와 비밀정보 비노출을 검증합니다.
