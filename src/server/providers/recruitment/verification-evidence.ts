@@ -47,7 +47,7 @@ function hasAffiliation(
 }
 
 function evidenceMissingClassification(recruitment: RecruitmentEvidence): VerificationEvidence["emailClassification"] {
-  if (recruitment.contacts.some((contact) => contact.verificationState === "not_found")) return "not_found";
+  if (recruitment.contactVerificationState === "not_found") return "not_found";
   if (recruitment.contacts.length > 0) return "unknown";
   return "not_checked";
 }

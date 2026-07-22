@@ -4,21 +4,39 @@ export interface AutomaticScoutingRunRequest {
   runId: string;
   query: string;
   category: string;
-  targetCount: number;
+  targetRecommendedCount: number;
   recentVideoLimit?: number;
+  safetyLimits?: Partial<AutomaticScoutingSafetyLimits>;
   settings: RecommendationSettings;
 }
 
+export interface AutomaticScoutingSafetyLimits {
+  maxScannedCandidates: number;
+  maxDiscoveryPages: number;
+  maxRunDurationMs: number;
+  maxProviderFailures: number;
+}
+
+export type AutomaticScoutingStopReason =
+  | "target_reached"
+  | "source_exhausted"
+  | "candidate_limit_reached"
+  | "page_limit_reached"
+  | "time_limit_reached"
+  | "provider_failure_limit_reached";
+
 export interface AutomaticScoutingStatistics {
+  targetRecommendedCount: number;
+  recommendationsFilled: number;
   discovered: number;
-  skippedDuplicates: number;
-  skippedPriorHistory: number;
-  skippedSameRun: number;
+  priorHistorySkipped: number;
+  sameRunDuplicatesSkipped: number;
   evaluated: number;
   recommended: number;
   hold: number;
   excluded: number;
   failed: number;
+  stopReason: AutomaticScoutingStopReason;
 }
 
 export type AutomaticScoutingFailureStage =

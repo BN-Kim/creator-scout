@@ -30,7 +30,7 @@ export class ApprovedPublicRecruitmentEvidenceProvider implements RecruitmentEvi
     validateRequest(request);
     const raw = await this.client.fetchEvidence(request);
     if (!raw || !Array.isArray(raw.items)) throw new Error("승인 출처 응답 형식이 올바르지 않습니다.");
-    return { normalized: normalizeEvidence(raw.items, this.approvedSourceIds), raw };
+    return { normalized: normalizeApprovedRecruitmentEvidence(raw.items, this.approvedSourceIds), raw };
   }
 }
 
@@ -49,6 +49,16 @@ export function createUncheckedRecruitmentEvidence(): RecruitmentEvidence {
       sources: [],
       observations: [],
     },
+    koreanLanguageActivity: {
+      recentTitleHangulPresenceRatio: null,
+      hangulCharacterRatio: null,
+      explicitKoreanCountryOrActivityEvidence: null,
+      countryMetadata: null,
+      languageMetadata: null,
+      state: "unclear",
+      verifiedAt: new Date(0).toISOString(),
+      sources: [],
+    },
   };
 }
 
@@ -58,7 +68,10 @@ function validateRequest(request: RecruitmentEvidenceRequest): void {
   }
 }
 
-function normalizeEvidence(items: RawRecruitmentEvidenceItem[], approvedSourceIds: ReadonlySet<string>): RecruitmentEvidence {
+export function normalizeApprovedRecruitmentEvidence(
+  items: RawRecruitmentEvidenceItem[],
+  approvedSourceIds: ReadonlySet<string>,
+): RecruitmentEvidence {
   if (items.some((item) => !approvedSourceIds.has(item.source.sourceId))) throw new Error("승인되지 않은 출처의 근거는 사용할 수 없습니다.");
   const approvedItems = items;
   const contacts = approvedItems.flatMap((item): PublicContactEvidence[] => {
@@ -96,6 +109,7 @@ function normalizeEvidence(items: RawRecruitmentEvidenceItem[], approvedSourceId
       affiliations.filter((item) => item.verificationState === "confirmed").map((item) => `${item.affiliationType}:${item.organizationName ?? "missing"}`),
     ),
     koreanSuitability: normalizeSuitability(suitabilityItems),
+    koreanLanguageActivity: createUncheckedRecruitmentEvidence().koreanLanguageActivity,
   };
 }
 
@@ -108,6 +122,7 @@ function aggregateState(
   if (confirmedValues.length > 0) return "confirmed";
   if (states.includes("conflicting")) return "conflicting";
   if (states.includes("unconfirmed")) return "unconfirmed";
+  if (states.includes("not_checked")) return "not_checked";
   if (states.includes("not_found")) return "not_found";
   return "not_checked";
 }

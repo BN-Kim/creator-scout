@@ -7,10 +7,11 @@ export type ContentType = "long_form" | "shorts" | "mixed" | "unknown";
 export type RecruitmentVerificationState = VerificationState | "not_found" | "conflicting";
 export type OrganizationType = "company" | "agency" | "management" | "mcn" | "label";
 export type AffiliationType = OrganizationType | "independent" | "unknown";
+export type KoreanLanguageActivityState = "likely" | "unclear" | "unlikely";
 
 export interface RecruitmentEvidenceSource {
   sourceId: string;
-  sourceType: "youtube_channel_about" | "creator_official_website" | "creator_public_profile";
+  sourceType: "youtube_channel_about" | "youtube_video_description" | "creator_official_website" | "creator_public_profile";
   publicUrl: string;
   approved: true;
 }
@@ -56,6 +57,18 @@ export interface RecruitmentEvidence {
   affiliations: AffiliationEvidence[];
   affiliationVerificationState: RecruitmentVerificationState;
   koreanSuitability: KoreanSuitabilityEvidence;
+  koreanLanguageActivity: KoreanLanguageActivityEvidence;
+}
+
+export interface KoreanLanguageActivityEvidence {
+  recentTitleHangulPresenceRatio: number | null;
+  hangulCharacterRatio: number | null;
+  explicitKoreanCountryOrActivityEvidence: boolean | null;
+  countryMetadata: string | null;
+  languageMetadata: string | null;
+  state: KoreanLanguageActivityState;
+  verifiedAt: string;
+  sources: RecruitmentEvidenceSource[];
 }
 
 export interface CreatorIdentity {
@@ -199,4 +212,4 @@ export interface ScoutingRun {
 }
 
 export interface HistoryExportRecord { channel_name: string; url: string; status: HistoryStatus; }
-export interface NewRunInput { name: string; category: string; keywords: string; targetCount: number; maximumDaysSinceLatestUpload: number; minimumRecentAverageViews: number; minimumRecentVideoCount: number; }
+export interface NewRunInput { name: string; category: string; keywords: string; targetRecommendedCount: number; maximumDaysSinceLatestUpload: number; minimumRecentAverageViews: number; minimumRecentVideoCount: number; }

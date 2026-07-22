@@ -191,7 +191,7 @@ describe("InnerTube H4 pipeline integration", () => {
       runId: "innertube-fictional-run",
       query: "허구 InnerTube 검색",
       category: "뷰티",
-      targetCount: 1,
+      targetRecommendedCount: 1,
       recentVideoLimit: 5,
       settings: defaultRecommendationSettings,
     };
@@ -201,10 +201,10 @@ describe("InnerTube H4 pipeline integration", () => {
     const repeated = await pipeline.run({ ...request, runId: "innertube-fictional-retry" });
 
     expect(first.results).toHaveLength(1);
-    expect(first.statistics).toMatchObject({ discovered: 1, evaluated: 1, hold: 1, skippedDuplicates: 0, failed: 0 });
+    expect(first.statistics).toMatchObject({ discovered: 1, evaluated: 1, hold: 1, priorHistorySkipped: 0, sameRunDuplicatesSkipped: 0, failed: 0, stopReason: "source_exhausted" });
     expect(repository.load()).toHaveLength(1);
     expect(repeated.results).toEqual([]);
-    expect(repeated.statistics).toMatchObject({ discovered: 1, evaluated: 0, skippedPriorHistory: 1, skippedDuplicates: 1 });
+    expect(repeated.statistics).toMatchObject({ discovered: 1, evaluated: 0, priorHistorySkipped: 1, sameRunDuplicatesSkipped: 0, stopReason: "source_exhausted" });
     expect({ channel: client.calls.channel, videos: client.calls.videos }).toEqual(expensiveCallsAfterFirst);
     expect(repository.load()).toHaveLength(1);
   });

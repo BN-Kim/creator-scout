@@ -1,6 +1,12 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
+import pLimit from "p-limit";
 import { Innertube } from "youtubei.js";
+import type {
+  YouTubeRecruitmentSnapshot,
+  YouTubeRecruitmentSourceClient,
+  YouTubeRecruitmentVideo,
+} from "@/server/providers/recruitment/live-source-types";
 import type { ParsedYouTubeIdentityLookup } from "@/server/providers/youtube/identity-input";
 import {
   InnerTubeBridgeError,
@@ -29,6 +35,66 @@ export async function createYouTubeJsInnerTubeClient(): Promise<InnerTubeClient>
     return new YouTubeJsInnerTubeClient(innertube);
   } catch (error: unknown) {
     throw mapRuntimeError(error);
+  }
+}
+
+export async function createYouTubeJsRecruitmentSourceClient(): Promise<YouTubeRecruitmentSourceClient> {
+  try {
+    const innertube = await Innertube.create({
+      lang: "en",
+      location: "KR",
+      retrieve_player: false,
+      generate_session_locally: true,
+      enable_session_cache: false,
+    });
+    return new YouTubeJsRecruitmentSourceClient(innertube);
+  } catch (error: unknown) {
+    throw mapRuntimeError(error);
+  }
+}
+
+class YouTubeJsRecruitmentSourceClient implements YouTubeRecruitmentSourceClient {
+  async collectPublicRecruitmentSurface(channelId: string, maxVideos: number): Promise<YouTubeRecruitmentSnapshot> {
+    try {
+      const channel = await this.innertube.getChannel(channelId);
+      const channelRecord = asRecord(channel);
+      const metadata = asRecord(channelRecord?.metadata);
+      const header = asRecord(channelRecord?.header);
+      const resolvedChannelId = readString(metadata, "external_id") ?? readString(header, "channel_id");
+      const channelTitle = readString(metadata, "title") ?? readText(header?.title);
+      if (resolvedChannelId !== channelId || !channelTitle) throw new InnerTubeBridgeError("response_invalid");
+      const videosPage = await channel.getVideos();
+      const cards = readArrayProperty(videosPage, "videos").flatMap(recruitmentVideoCard).slice(0, maxVideos);
+      const limit = pLimit(3);
+      const recentVideos = await Promise.all(cards.map((card) => limit(() => this.videoDetails(card))));
+      return {
+        channelId,
+        channelTitle,
+        channelDescription: readText(metadata?.description) ?? readText(header?.description),
+        country: readString(metadata, "country"),
+        language: readString(metadata, "language") ?? readString(metadata, "default_language"),
+        officialLinks: extractOfficialLinks(metadata, header),
+        recentVideos,
+      };
+    } catch (error: unknown) {
+      throw mapRuntimeError(error);
+    }
+  }
+
+  constructor(private readonly innertube: Innertube) {}
+
+  private async videoDetails(card: YouTubeRecruitmentVideo): Promise<YouTubeRecruitmentVideo> {
+    try {
+      const info = asRecord(await this.innertube.getInfo(card.videoId));
+      const basicInfo = asRecord(info?.basic_info);
+      return {
+        videoId: card.videoId,
+        title: readString(basicInfo, "title") ?? card.title,
+        description: readString(basicInfo, "short_description"),
+      };
+    } catch {
+      return card;
+    }
   }
 }
 
@@ -146,6 +212,44 @@ function videoSnapshot(value: unknown): InnerTubeVideoSnapshot[] {
     viewCountText: readText(record?.view_count) ?? readText(record?.views) ?? readText(record?.short_view_count),
     durationSeconds: readFiniteNumber(duration, "seconds") ?? durationFromText(readText(record?.length_text) ?? readText(record?.duration)),
   }];
+}
+
+function recruitmentVideoCard(value: unknown): YouTubeRecruitmentVideo[] {
+  const record = asRecord(value);
+  const videoId = readString(record, "video_id") ?? readString(record, "id");
+  const title = readText(record?.title);
+  return videoId && title ? [{ videoId, title, description: null }] : [];
+}
+
+function extractOfficialLinks(
+  metadata: Record<string, unknown> | null,
+  header: Record<string, unknown> | null,
+): string[] {
+  const candidates = [...readArrayProperty(metadata, "links"), ...readArrayProperty(header, "links")];
+  return [...new Set(candidates.flatMap((candidate) => {
+    const record = asRecord(candidate);
+    const endpoint = asRecord(record?.endpoint);
+    const payload = asRecord(endpoint?.payload);
+    const rawUrl = readString(record, "url") ?? readString(payload, "url") ?? readString(payload, "q");
+    const external = rawUrl ? externalPublicUrl(rawUrl) : null;
+    return external ? [external] : [];
+  }))];
+}
+
+function externalPublicUrl(value: string): string | null {
+  try {
+    const initial = new URL(value, "https://www.youtube.com");
+    const unwrapped = /(^|\.)youtube\.com$/i.test(initial.hostname)
+      ? initial.searchParams.get("q") ?? initial.searchParams.get("url")
+      : initial.toString();
+    if (!unwrapped) return null;
+    const url = new URL(unwrapped);
+    if (!["http:", "https:"].includes(url.protocol) || /(^|\.)youtube\.com$/i.test(url.hostname) || /(^|\.)youtu\.be$/i.test(url.hostname)) return null;
+    url.hash = "";
+    return url.toString();
+  } catch {
+    return null;
+  }
 }
 
 function exactPublishedValue(value: unknown): string | null {

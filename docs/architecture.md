@@ -29,6 +29,7 @@
 | 히스토리 사전 확인·근거 변환 | `src/server/providers/youtube/history-prechecked-evidence.ts`, `src/server/providers/youtube/verification-evidence.ts` |
 | 실행 결과 조합·표시 | `src/server/scouting/creator-input-assembler.ts`, `src/app/runs/[id]/automatic-run-result.tsx` |
 | 리크루팅 근거 계약·정규화 | `src/server/providers/recruitment/provider-contract.ts`, `src/server/providers/recruitment/approved-public-provider.ts`, `src/server/providers/recruitment/verification-evidence.ts` |
+| H5.1 공개 출처 수집·분류 | `src/server/providers/recruitment/live-recruitment-provider.ts`, `src/server/providers/recruitment/public-web-client.ts`, `src/server/providers/recruitment/visible-email-classifier.ts`, `src/server/providers/recruitment/korean-language-activity.ts` |
 | 목 입력 데이터 | `src/data/creators.ts`, `src/data/scouting-runs.ts`, `src/data/recommendation-settings.ts` |
 | 단위·계약 테스트 | `tests/*.test.ts`, `tests/contracts/*.test.ts` |
 | 브라우저 UI 스모크 테스트 | `playwright.config.ts`, `tests/e2e/smoke.spec.ts` |
@@ -71,7 +72,11 @@ UI
 
 과거 일치는 판정 엔진이나 결과 그룹으로 보내지 않습니다. 따라서 비용이 큰 근거 수집, 새 `excluded` 결과와 추가 히스토리 쓰기가 발생하지 않습니다.
 
+H4.2 오케스트레이션은 발견 후보 수가 아니라 신규 `recommended` 수를 실행 목표로 사용합니다. 남은 추천 슬롯 이하의 후보만 발견·평가하고, `hold`와 `excluded`는 저장한 뒤 다음 후보를 계속 찾습니다. 중복과 실패는 목표에 포함하지 않으며 후보·페이지·시간·공급자 실패 상한 중 하나에 도달하거나 소스가 소진되면 구조화된 중단 사유와 부분 충족 통계를 반환합니다.
+
 H5 리크루팅 근거는 히스토리 선검사와 YouTube 근거 수집을 통과한 신규 신원에만 적용됩니다. 승인 출처 클라이언트의 원본 응답은 어댑터 경계에 남고, 출처 ID·공개 URL·확인 상태·확인 시각을 가진 정규화 연락·소속·국내 적합성 관측값만 `CreatorInput` 조합 경계에 전달됩니다. 미확인·누락·상충 값은 확정 값으로 승격하지 않으며, 확인된 조직 연락처와 소속은 기존 판정 필드에 매핑되어 기존 하드 게이트를 그대로 사용합니다.
+
+H5.1 수집기는 서버 전용 YouTube.js 브리지에서 채널 설명, 최근 공개 영상 최대 20개의 제목·설명과 채널이 직접 공개한 외부 링크를 안정적인 스냅샷으로 받습니다. 공식 사이트 수집기는 그 정확한 호스트의 공개 HTML과 실제 링크된 허용 페이지만 `robots.txt` 및 유한 요청 제한 아래 확인합니다. HTML과 YouTube.js 원본 객체는 경계 밖으로 전달하거나 저장하지 않습니다. 이메일 분류는 도메인·주변 문맥·검증된 공식 사이트 근거만 사용하며, 한국어 활동 신호는 시청자 지역과 별도 근거로 유지합니다.
 
 H3 단일 후보 경계는 독립적으로 유지되며 H4 파이프라인이 같은 공급자 계약과 근거 변환을 배치 단위로 소비합니다.
 
@@ -101,4 +106,4 @@ UI가 설정과 입력을 조합하지만 판정 자체는 `evaluateCreator`가 
 - 공급자 원본 응답은 정규화 근거와 분리하고 UI·판정 엔진에 직접 전달하지 않습니다.
 - YouTube.js의 변동 가능한 파서 객체는 서버 전용 런타임 브리지 밖으로 전달하지 않고 안정적인 내부 스냅샷으로 격리합니다.
 - 리크루팅 근거 공급자는 생성 시 명시적으로 허용된 출처 ID만 수락하고 승인되지 않은 출처를 거부합니다.
-- `RecruitmentEvidenceSource.sourceType` 값과 허구 픽스처는 라이브 출처 승인이 아닙니다. 실제 클라이언트는 출처와 수집 방식이 채택된 결정 기록에 명시된 뒤에만 추가합니다.
+- H5.1 라이브 수집 범위는 채택된 결정 008의 정확한 출처와 방식으로 제한합니다. 출처 유형 추가나 허구 픽스처는 범위 확대 승인이 아닙니다.

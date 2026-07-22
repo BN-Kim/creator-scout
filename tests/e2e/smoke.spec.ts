@@ -56,7 +56,9 @@ test("새 추천 실행 폼은 무효 입력을 막고 유효 입력을 상세 �
   await page.getByRole("button", { name: "추천 실행 만들기" }).click();
 
   await expect(page).toHaveURL(/\/runs\/automatic-[a-f0-9-]+$/);
-  await expect(page.getByRole("heading", { name: "자동 목 스카우팅 실행" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "자동 추천 실행" })).toBeVisible();
+  await expect(page.getByRole("status")).toContainText("1 / 50명 충족");
+  await expect(page.getByRole("status")).toContainText("부분 완료");
 });
 
 test("추천·보류·제외가 렌더링되고 각 크리에이터는 한 그룹에만 존재한다", async ({ page }) => {
@@ -132,10 +134,13 @@ test("반복 실행과 반복 교정은 히스토리 레코드를 중복 생성�
 
 test("H4 자동 실행은 신규 결과만 표시하고 반복 실행에도 히스토리를 중복 생성하지 않는다", async ({ page }) => {
   await page.goto("/runs/automatic-h4-mock-run");
-  await expect(page.getByRole("heading", { name: "자동 목 스카우팅 실행" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "자동 추천 실행" })).toBeVisible();
   const stats = page.getByRole("region", { name: "실행 통계" });
+  await expect(stats).toContainText("추천 목표1");
+  await expect(stats).toContainText("추천 충족1");
   await expect(stats).toContainText("발견6");
-  await expect(stats).toContainText("중복 건너뜀2");
+  await expect(stats).toContainText("과거 중복1");
+  await expect(stats).toContainText("실행 내 중복1");
   await expect(stats).toContainText("평가3");
   await expect(stats).toContainText("추천1");
   await expect(stats).toContainText("보류1");
@@ -147,6 +152,7 @@ test("H4 자동 실행은 신규 결과만 표시하고 반복 실행에도 히�
   await expect(page.getByText("H4 허구 제외 채널", { exact: true })).toHaveCount(1);
   await expect(page.getByText("H4 허구 과거 채널", { exact: true })).toHaveCount(0);
   await expect(page.getByText("H4 허구 실패 채널", { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("status")).toContainText("1 / 1명 충족");
 
   const firstHistory = await historyRecords(page);
   expect(firstHistory).toHaveLength(4);

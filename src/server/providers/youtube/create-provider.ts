@@ -21,6 +21,13 @@ export function createYouTubeDataApiProvider(
 
 export type ConfiguredYouTubeProvider = YouTubeCandidateDiscoveryProvider & YouTubeIdentityProvider & YouTubeEvidenceProvider;
 
+export function createInnerTubeYouTubeProvider(
+  environment: NodeJS.ProcessEnv = process.env,
+  dependencies: InnerTubeProviderDependencies = {},
+): InnerTubeYouTubeProvider {
+  return new InnerTubeYouTubeProvider(loadInnerTubeProviderConfig(environment), dependencies);
+}
+
 export interface ConfiguredYouTubeProviderDependencies {
   official?: YouTubeApiClientDependencies;
   innertube?: InnerTubeProviderDependencies;
@@ -32,5 +39,5 @@ export function createConfiguredYouTubeProvider(
 ): ConfiguredYouTubeProvider {
   const selected = loadYouTubeProviderSelection(environment);
   if (selected === "official") return createYouTubeDataApiProvider(environment, dependencies.official);
-  return new InnerTubeYouTubeProvider(loadInnerTubeProviderConfig(environment), dependencies.innertube);
+  return createInnerTubeYouTubeProvider(environment, dependencies.innertube);
 }

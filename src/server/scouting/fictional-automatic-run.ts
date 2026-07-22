@@ -34,27 +34,33 @@ const channelNames: Record<string, string> = {
 export async function runFictionalAutomaticScouting(
   historyRepository: HistoryRepository,
   runId = "automatic-h4-mock-run",
+  targetRecommendedCount = 1,
 ): Promise<AutomaticScoutingRunResult> {
   seedPriorHistory(historyRepository);
   const discoveredIds = [
     channelIds.prior,
-    channelIds.recommended,
-    channelIds.recommended,
+    channelIds.hold,
     channelIds.hold,
     channelIds.excluded,
     channelIds.failed,
+    channelIds.recommended,
   ];
   const discoveryProvider: YouTubeCandidateDiscoveryProvider = {
-    discoverCandidates: async ({ query }) => ({
-      candidates: discoveredIds.map((channelId) => ({
+    discoverCandidates: async ({ query, maxResults, pageToken }) => {
+      const start = pageToken ? Number(pageToken) : 0;
+      const pageIds = discoveredIds.slice(start, start + maxResults);
+      const nextIndex = start + pageIds.length;
+      return {
+      candidates: pageIds.map((channelId) => ({
         channelId,
         discoveredTitle: channelNames[channelId],
         identityInput: { kind: "channel_id", value: channelId },
         sourceQuery: query,
       })),
-      nextPageToken: null,
+      nextPageToken: nextIndex < discoveredIds.length ? String(nextIndex) : null,
       raw: { fixture: "H4 fictional discovery" },
-    }),
+    };
+    },
   };
   const identityProvider: YouTubeIdentityProvider = {
     resolveIdentity: async (input) => ({ identity: resolvedIdentity(input.value), raw: { fixture: "H4 fictional identity" } }),
@@ -85,7 +91,7 @@ export async function runFictionalAutomaticScouting(
     runId,
     query: "H4 허구 자동 스카우팅",
     category: "뷰티",
-    targetCount: discoveredIds.length,
+    targetRecommendedCount,
     recentVideoLimit: 5,
     settings: defaultRecommendationSettings,
   });

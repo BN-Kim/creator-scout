@@ -3,9 +3,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { defaultRecommendationSettings } from "@/config/recommendation-rules";
 import { getServerHistoryRepository } from "@/server/history/server-history-repository";
+import { createLiveRecruitmentEvidenceProvider } from "@/server/providers/recruitment/create-live-provider";
 import { createConfiguredYouTubeProvider } from "@/server/providers/youtube/create-provider";
 import { YouTubeProviderError } from "@/server/providers/youtube/provider-error";
 import { AutomaticScoutingPipeline } from "@/server/scouting/automatic-scouting-pipeline";
+import { loadAutomaticScoutingSafetyLimits } from "@/server/scouting/automatic-scouting-config";
 import { saveAutomaticRunResult } from "@/server/scouting/automatic-run-result-store";
 import { runFictionalAutomaticScouting } from "@/server/scouting/fictional-automatic-run";
 
@@ -16,7 +18,7 @@ const requestSchema = z.object({
   name: z.string().trim().min(1),
   category: z.string().trim().min(1),
   keywords: z.string().trim().min(1),
-  targetCount: z.number().int().min(1).max(500),
+  targetRecommendedCount: z.number().int().min(1).max(500),
   maximumDaysSinceLatestUpload: z.number().int().min(42).max(56),
   minimumRecentAverageViews: z.number().nonnegative(),
   minimumRecentVideoCount: z.number().int().min(2),
@@ -29,7 +31,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     if (process.env.E2E_TEST_MODE === "1") {
       const runId = `automatic-${randomUUID()}`;
-      const result = await runFictionalAutomaticScouting(getServerHistoryRepository(), runId);
+      const result = await runFictionalAutomaticScouting(
+        getServerHistoryRepository(),
+        runId,
+        input.targetRecommendedCount,
+      );
       saveAutomaticRunResult(result);
       return NextResponse.json({ runId: result.runId });
     }
@@ -40,13 +46,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       discoveryProvider: provider,
       identityProvider: provider,
       evidenceProvider: provider,
+      recruitmentEvidenceProvider: createLiveRecruitmentEvidenceProvider(),
       historyRepository: getServerHistoryRepository(),
     });
     const result = await pipeline.run({
       runId,
       query: input.keywords,
       category: input.category,
-      targetCount: input.targetCount,
+      targetRecommendedCount: input.targetRecommendedCount,
+      safetyLimits: loadAutomaticScoutingSafetyLimits(),
       settings: {
         ...defaultRecommendationSettings,
         maximumDaysSinceLatestUpload: input.maximumDaysSinceLatestUpload,
