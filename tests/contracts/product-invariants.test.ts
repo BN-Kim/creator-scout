@@ -48,12 +48,12 @@ describe("permanent product contracts", () => {
     expect(evaluate({ ...base, evidence: { ...base.evidence, channelExists: false } }).decision).toBe("excluded");
   });
 
-  it("prior-history duplicate excludes", () => {
+  it("defensively excludes prior history input that bypasses the pipeline precheck", () => {
     const result = evaluateCreator(mockCreatorInputs[20], defaultRecommendationSettings, createInitialHistory(), [], now);
     expect(result.decision).toBe("excluded"); expect(result.reasonCodes).toContain("prior_history_duplicate");
   });
 
-  it("same-run duplicate excludes", () => {
+  it("defensively excludes same-run input that bypasses the identity blocklist", () => {
     const result = evaluateCreator(mockCreatorInputs[21], defaultRecommendationSettings, [], [mockCreatorInputs[0].identity], now);
     expect(result.decision).toBe("excluded"); expect(result.reasonCodes).toContain("same_run_duplicate");
   });

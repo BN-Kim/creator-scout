@@ -8,5 +8,6 @@
 - [`004-localstorage-is-temporary.md`](004-localstorage-is-temporary.md) — localStorage의 임시 성격
 - [`005-hard-gates-override-positive-signals.md`](005-hard-gates-override-positive-signals.md) — 하드 게이트 우선
 - [`006-sqlite-server-history.md`](006-sqlite-server-history.md) — H2 SQLite 서버 히스토리
+- [`007-automatic-history-and-precheck.md`](007-automatic-history-and-precheck.md) — 자동 히스토리와 검증 전 중복 건너뛰기
 
 결정 변경은 [`product-rules.md`](../product-rules.md), 계약 테스트와 현재 상태 문서를 함께 갱신해야 합니다.

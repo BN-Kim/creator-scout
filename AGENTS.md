@@ -15,7 +15,9 @@
 - Organization-owned email always means excluded.
 - Hard gates override positive signals.
 - Never invent creator identity, URLs, emails, metrics, or evidence. Fictional fixtures must be clearly marked as mock data.
-- Check history before recommendation and same-run duplicates before visible results.
+- Normalize identity and check history before expensive evidence collection; silently skip prior-history matches from new results.
+- Keep the same-run identity blocklist and treat duplicate skipping as a pipeline action, never a creator decision.
+- Persist every finalized creator decision automatically; users do not maintain or import history files.
 - Manual corrections override system decisions.
 - Keep business rules outside React components.
 - User-facing UI text must be Korean.

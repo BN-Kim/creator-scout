@@ -30,7 +30,7 @@ export const goldenDecisionFixtures: GoldenDecisionFixture[] = [
   fixture("MCN 이메일 제외", 19, "excluded", "mcn_email"),
   fixture("낮은 최근 조회 제외", 10, "excluded", "recent_views_below_threshold"),
   fixture("비활성 채널 제외", 8, "excluded", "latest_upload_too_old"),
-  fixture("기존 히스토리 중복 제외", 21, "excluded", "prior_history_duplicate", createInitialHistory()),
-  fixture("동일 실행 중복 제외", 22, "excluded", "same_run_duplicate", [], [mockCreatorInputs[0].identity]),
+  fixture("파이프라인 사전 확인을 우회한 과거 중복 방어", 21, "excluded", "prior_history_duplicate", createInitialHistory()),
+  fixture("동일 실행 신원 블록리스트를 우회한 중복 방어", 22, "excluded", "same_run_duplicate", [], [mockCreatorInputs[0].identity]),
   fixture("수동 교정 제외", 23, "excluded", "user_corrected_invalid"),
 ];
