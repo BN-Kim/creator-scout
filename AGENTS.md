@@ -1,20 +1,31 @@
-# Project Rules
+# Agent Guide
 
-- The product uses only `recommended`, `hold`, and `excluded` creator decisions.
-- All user-facing decision labels are `추천`, `보류`, and `제외`.
-- Confirmed company, agency, management, MCN, or label email always means excluded.
-- Missing or unchecked email may mean hold.
-- Only a confirmed personal-looking email can satisfy recommendation.
-- Hard exclusion conditions override all positive signals.
-- History duplicate checks happen before recommendation.
-- Same-run duplicate checks happen before visible results.
-- User corrections override automatic decisions.
-- Search-result URLs are not creator identities.
-- Never invent creator identity, URLs, emails, views, or evidence. Clearly fictional phase fixtures must be labeled as mock data and must never be presented as real findings.
-- Business decision logic must remain outside React components.
-- External integrations require a separate later-phase instruction.
-- The project uses TypeScript only; Python must not be used.
-- User-facing UI text must be written in Korean.
-- Do not add unnecessary dependencies.
-- Run lint, tests, type checking, and build after relevant changes.
-- Preserve backward compatibility for the three-field history export format: `channel_name`, `url`, and `status`.
+## Required reading order
+
+1. Read this file.
+2. Read [`docs/index.md`](docs/index.md).
+3. Read [`docs/current-status.md`](docs/current-status.md).
+4. Read the relevant sections of [`docs/architecture.md`](docs/architecture.md) and [`docs/product-rules.md`](docs/product-rules.md).
+5. Read tests related to the requested change.
+
+## Permanent rules
+
+- TypeScript only; do not use Python.
+- Creator decisions are only `recommended`, `hold`, and `excluded`.
+- Organization-owned email always means excluded.
+- Hard gates override positive signals.
+- Never invent creator identity, URLs, emails, metrics, or evidence. Fictional fixtures must be clearly marked as mock data.
+- Check history before recommendation and same-run duplicates before visible results.
+- Manual corrections override system decisions.
+- Keep business rules outside React components.
+- User-facing UI text must be Korean.
+- Work on one phase from [`docs/development-plan.md`](docs/development-plan.md) at a time.
+- Do not add an external integration unless the active phase explicitly requires it.
+- Update [`docs/current-status.md`](docs/current-status.md) after meaningful implementation changes.
+- Preserve the three-field history export contract: `channel_name`, `url`, `status`.
+
+Canonical business rules live in [`docs/product-rules.md`](docs/product-rules.md). Architectural ownership lives in [`docs/architecture.md`](docs/architecture.md). Do not duplicate those specifications elsewhere.
+
+## Completion
+
+Run `npm run verify`. It executes lint, tests, type checking, and the production build. Fix implementation-related failures before handing off.

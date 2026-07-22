@@ -1,0 +1,36 @@
+import { mockCreatorInputs } from "@/data/creators";
+import { createInitialHistory } from "@/lib/mock-run";
+import type { CreatorDecision, CreatorIdentity, CreatorInput, HistoryRecord, ReasonCode } from "@/types/domain";
+
+export interface GoldenDecisionFixture {
+  name: string;
+  input: CreatorInput;
+  history: HistoryRecord[];
+  sameRun: CreatorIdentity[];
+  expectedDecision: CreatorDecision;
+  expectedPrimaryReasonCode: ReasonCode | null;
+}
+
+const fixture = (name: string, sourceIndex: number, expectedDecision: CreatorDecision, expectedPrimaryReasonCode: ReasonCode | null, history: HistoryRecord[] = [], sameRun: CreatorIdentity[] = []): GoldenDecisionFixture => ({
+  name,
+  input: mockCreatorInputs[sourceIndex - 1],
+  history,
+  sameRun,
+  expectedDecision,
+  expectedPrimaryReasonCode,
+});
+
+export const goldenDecisionFixtures: GoldenDecisionFixture[] = [
+  fixture("완전 검증된 개인 이메일 추천", 1, "recommended", null),
+  fixture("이메일 미발견 보류", 2, "hold", "missing_email"),
+  fixture("이메일 소유 불명 보류", 4, "hold", "email_ownership_unknown"),
+  fixture("회사 이메일 제외", 16, "excluded", "company_email"),
+  fixture("에이전시 이메일 제외", 17, "excluded", "agency_email"),
+  fixture("매니지먼트 이메일 제외", 18, "excluded", "management_email"),
+  fixture("MCN 이메일 제외", 19, "excluded", "mcn_email"),
+  fixture("낮은 최근 조회 제외", 10, "excluded", "recent_views_below_threshold"),
+  fixture("비활성 채널 제외", 8, "excluded", "latest_upload_too_old"),
+  fixture("기존 히스토리 중복 제외", 21, "excluded", "prior_history_duplicate", createInitialHistory()),
+  fixture("동일 실행 중복 제외", 22, "excluded", "same_run_duplicate", [], [mockCreatorInputs[0].identity]),
+  fixture("수동 교정 제외", 23, "excluded", "user_corrected_invalid"),
+];
