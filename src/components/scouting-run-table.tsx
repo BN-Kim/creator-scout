@@ -1,0 +1,8 @@
+import Link from "next/link";
+import { StatusBadge } from "@/components/status-badge";
+import { formatDate, formatNumber } from "@/lib/format";
+import type { ScoutingRun } from "@/types/domain";
+
+export function ScoutingRunTable({ runs }: { runs: ScoutingRun[] }): React.ReactNode {
+  return <div className="overflow-x-auto"><table className="w-full min-w-[800px] text-left text-sm"><thead className="border-y border-slate-200 bg-slate-50 text-xs font-semibold text-slate-500"><tr><th className="px-4 py-3">실행 이름</th><th className="px-4 py-3">카테고리</th><th className="px-4 py-3">생성일</th><th className="px-4 py-3 text-right">전체 검토</th><th className="px-4 py-3 text-right">보류</th><th className="px-4 py-3 text-right">추천</th><th className="px-4 py-3 text-right">제외</th><th className="px-4 py-3">상태</th></tr></thead><tbody className="divide-y divide-slate-100">{runs.map((run) => <tr key={run.id} className="hover:bg-slate-50"><td className="px-4 py-4 font-semibold text-ink"><Link className="hover:text-brand hover:underline" href={`/runs/${run.id}`}>{run.name}</Link></td><td className="px-4 py-4 text-slate-600">{run.category}</td><td className="px-4 py-4 text-slate-500">{formatDate(run.createdAt)}</td><td className="px-4 py-4 text-right tabular-nums">{formatNumber(run.totalDiscovered)}</td><td className="px-4 py-4 text-right tabular-nums">{formatNumber(run.candidateCount)}</td><td className="px-4 py-4 text-right tabular-nums">{formatNumber(run.approvedCount)}</td><td className="px-4 py-4 text-right tabular-nums">{formatNumber(run.excludedCount)}</td><td className="px-4 py-4"><StatusBadge status={run.status} /></td></tr>)}</tbody></table></div>;
+}
