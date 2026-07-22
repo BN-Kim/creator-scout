@@ -5,6 +5,8 @@ import { mockCreatorInputs } from "@/data/creators";
 import { openDatabase } from "@/server/database/database";
 import { createHistoryRecord } from "@/server/history/history-record";
 import type { HistoryRepository } from "@/server/history/history-repository";
+import type { RecruitmentEvidenceProvider } from "@/server/providers/recruitment/provider-contract";
+import { createUncheckedRecruitmentEvidence } from "@/server/providers/recruitment/approved-public-provider";
 import { SqliteHistoryRepository } from "@/server/history/sqlite-history-repository";
 import type {
   YouTubeCandidateDiscoveryProvider,
@@ -167,6 +169,55 @@ describe("automatic scouting pipeline", () => {
     expect(result.statistics.discovered).toBe(3);
     expect(result.results).toHaveLength(3);
   });
+
+  it("collects normalized H5 evidence only for new identities and keeps repeated runs idempotent", async () => {
+    const repository = createRepository();
+    const recruitmentProvider = fictionalRecruitmentProvider();
+    const firstHarness = createHarness([CHANNEL_A], repository, { useDefaultAssembler: true, recruitmentProvider });
+    const first = await firstHarness.pipeline.run(request(1));
+    const secondHarness = createHarness([CHANNEL_A], repository, { useDefaultAssembler: true, recruitmentProvider });
+    const second = await secondHarness.pipeline.run(request(1));
+
+    expect(firstHarness.calls.recruitmentEvidence).toBe(1);
+    expect(first.results[0].evidence).toMatchObject({
+      visibleEmail: "h5-pipeline@example.invalid",
+      emailClassification: "personal",
+      emailVerificationState: "confirmed",
+    });
+    expect(first.results[0].evidence.recruitmentEvidence.contacts[0].source).toMatchObject({
+      sourceId: "h5-fictional-pipeline",
+      approved: true,
+    });
+    expect(secondHarness.calls.recruitmentEvidence).toBe(0);
+    expect(second.results).toEqual([]);
+    expect(repository.load()).toHaveLength(1);
+  });
+
+  it("isolates a recruitment evidence failure without exposing a result or stopping other candidates", async () => {
+    const repository = createRepository();
+    const recruitmentProvider: RecruitmentEvidenceProvider = {
+      collectEvidence: async ({ channelId }) => {
+        if (channelId === CHANNEL_B) throw new Error("fictional private response body");
+        return { normalized: fictionalRecruitmentEvidence(), raw: { fixture: true } };
+      },
+    };
+    const harness = createHarness([CHANNEL_A, CHANNEL_B, CHANNEL_C], repository, {
+      assembler: scenarioAssembler(new Map([[CHANNEL_A, 0], [CHANNEL_C, 1]])),
+      recruitmentProvider,
+    });
+    const result = await harness.pipeline.run(request(3));
+
+    expect(result.results).toHaveLength(2);
+    expect(result.failures).toContainEqual({
+      stage: "recruitment_evidence",
+      candidateChannelId: CHANNEL_B,
+      category: "internal",
+      retryable: false,
+      message: "자동 스카우팅 처리 중 오류가 발생했습니다.",
+    });
+    expect(JSON.stringify(result)).not.toContain("fictional private response body");
+    expect(repository.load()).toHaveLength(2);
+  });
 });
 
 function createRepository(): SqliteHistoryRepository {
@@ -210,10 +261,11 @@ interface HarnessOptions {
   useDefaultAssembler?: boolean;
   evidenceFailureChannelId?: string;
   discoveryProvider?: YouTubeCandidateDiscoveryProvider;
+  recruitmentProvider?: RecruitmentEvidenceProvider;
 }
 
 function createHarness(candidateIds: string[], repository: HistoryRepository, options: HarnessOptions = {}) {
-  const calls = { identity: 0, channelEvidence: 0, recentVideos: 0, assembled: 0 };
+  const calls = { identity: 0, channelEvidence: 0, recentVideos: 0, recruitmentEvidence: 0, assembled: 0 };
   const events: string[] = [];
   const originalFindDuplicate = repository.findDuplicate.bind(repository);
   repository.findDuplicate = (identity) => {
@@ -253,6 +305,12 @@ function createHarness(candidateIds: string[], repository: HistoryRepository, op
   const discoveryProvider: YouTubeCandidateDiscoveryProvider = options.discoveryProvider ?? {
     discoverCandidates: async () => ({ candidates: candidateIds.map(candidate), nextPageToken: null, raw: { fixture: true } }),
   };
+  const recruitmentProvider = options.recruitmentProvider ? {
+    collectEvidence: async (request) => {
+      calls.recruitmentEvidence += 1;
+      return options.recruitmentProvider!.collectEvidence(request);
+    },
+  } satisfies RecruitmentEvidenceProvider : undefined;
   return {
     calls,
     events,
@@ -260,10 +318,34 @@ function createHarness(candidateIds: string[], repository: HistoryRepository, op
       discoveryProvider,
       identityProvider,
       evidenceProvider,
+      ...(recruitmentProvider ? { recruitmentEvidenceProvider: recruitmentProvider } : {}),
       historyRepository: repository,
       ...(options.useDefaultAssembler ? {} : { assembleCreatorInput: assembler }),
       now: () => NOW,
     }),
+  };
+}
+
+function fictionalRecruitmentProvider(): RecruitmentEvidenceProvider {
+  return { collectEvidence: async () => ({ normalized: fictionalRecruitmentEvidence(), raw: { fixture: true } }) };
+}
+
+function fictionalRecruitmentEvidence() {
+  const source = {
+    sourceId: "h5-fictional-pipeline",
+    sourceType: "youtube_channel_about" as const,
+    publicUrl: "https://www.youtube.com/@h5-fictional-pipeline/about",
+    approved: true as const,
+  };
+  return {
+    ...createUncheckedRecruitmentEvidence(),
+    contacts: [{
+      email: "h5-pipeline@example.invalid",
+      classification: "personal" as const,
+      verificationState: "confirmed" as const,
+      verifiedAt: NOW.toISOString(),
+      source,
+    }],
   };
 }
 

@@ -1,4 +1,5 @@
 import type { NormalizedChannelEvidence, RecentVideoEvidence } from "@/server/providers/youtube/provider-types";
+import { createUncheckedRecruitmentEvidence } from "@/server/providers/recruitment/approved-public-provider";
 import type { ContentType, VerificationEvidence } from "@/types/domain";
 
 export function createVerificationEvidence(
@@ -48,6 +49,7 @@ export function createVerificationEvidence(
     emailVerificationState: "not_checked",
     emailClassification: "not_checked",
     recruitmentSuitability: null,
+    recruitmentEvidence: createUncheckedRecruitmentEvidence(),
     evidenceSource: channel.evidenceSource,
     verifiedAt: verifiedAt.toISOString(),
   };

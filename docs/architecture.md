@@ -28,6 +28,7 @@
 | 안정적 신원 정규화 | `src/server/providers/youtube/identity-input.ts` |
 | 히스토리 사전 확인·근거 변환 | `src/server/providers/youtube/history-prechecked-evidence.ts`, `src/server/providers/youtube/verification-evidence.ts` |
 | 실행 결과 조합·표시 | `src/server/scouting/creator-input-assembler.ts`, `src/app/runs/[id]/automatic-run-result.tsx` |
+| 리크루팅 근거 계약·정규화 | `src/server/providers/recruitment/provider-contract.ts`, `src/server/providers/recruitment/approved-public-provider.ts`, `src/server/providers/recruitment/verification-evidence.ts` |
 | 목 입력 데이터 | `src/data/creators.ts`, `src/data/scouting-runs.ts`, `src/data/recommendation-settings.ts` |
 | 단위·계약 테스트 | `tests/*.test.ts`, `tests/contracts/*.test.ts` |
 | 브라우저 UI 스모크 테스트 | `playwright.config.ts`, `tests/e2e/smoke.spec.ts` |
@@ -70,6 +71,8 @@ UI
 
 과거 일치는 판정 엔진이나 결과 그룹으로 보내지 않습니다. 따라서 비용이 큰 근거 수집, 새 `excluded` 결과와 추가 히스토리 쓰기가 발생하지 않습니다.
 
+H5 리크루팅 근거는 히스토리 선검사와 YouTube 근거 수집을 통과한 신규 신원에만 적용됩니다. 승인 출처 클라이언트의 원본 응답은 어댑터 경계에 남고, 출처 ID·공개 URL·확인 상태·확인 시각을 가진 정규화 연락·소속·국내 적합성 관측값만 `CreatorInput` 조합 경계에 전달됩니다. 미확인·누락·상충 값은 확정 값으로 승격하지 않으며, 확인된 조직 연락처와 소속은 기존 판정 필드에 매핑되어 기존 하드 게이트를 그대로 사용합니다.
+
 H3 단일 후보 경계는 독립적으로 유지되며 H4 파이프라인이 같은 공급자 계약과 근거 변환을 배치 단위로 소비합니다.
 
 ```text
@@ -97,3 +100,4 @@ UI가 설정과 입력을 조합하지만 판정 자체는 `evaluateCreator`가 
 - JSON 내보내기는 읽기 전용 호환 출력이며 파이프라인 입력이 아닙니다.
 - 공급자 원본 응답은 정규화 근거와 분리하고 UI·판정 엔진에 직접 전달하지 않습니다.
 - YouTube.js의 변동 가능한 파서 객체는 서버 전용 런타임 브리지 밖으로 전달하지 않고 안정적인 내부 스냅샷으로 격리합니다.
+- 리크루팅 근거 공급자는 생성 시 명시적으로 허용된 출처 ID만 수락하고 승인되지 않은 출처를 거부합니다.

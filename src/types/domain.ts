@@ -4,6 +4,59 @@ export type RunStatus = "running" | "reviewing" | "completed";
 export type VerificationState = "confirmed" | "unconfirmed" | "not_checked";
 export type EmailClassification = "personal" | "company" | "agency" | "management" | "mcn" | "label" | "unknown" | "not_found" | "not_checked";
 export type ContentType = "long_form" | "shorts" | "mixed" | "unknown";
+export type RecruitmentVerificationState = VerificationState | "not_found" | "conflicting";
+export type OrganizationType = "company" | "agency" | "management" | "mcn" | "label";
+export type AffiliationType = OrganizationType | "independent" | "unknown";
+
+export interface RecruitmentEvidenceSource {
+  sourceId: string;
+  sourceType: "youtube_channel_about" | "creator_official_website" | "creator_public_profile";
+  publicUrl: string;
+  approved: true;
+}
+
+export interface PublicContactEvidence {
+  email: string | null;
+  classification: EmailClassification;
+  verificationState: RecruitmentVerificationState;
+  verifiedAt: string;
+  source: RecruitmentEvidenceSource;
+}
+
+export interface AffiliationEvidence {
+  affiliationType: AffiliationType;
+  organizationName: string | null;
+  verificationState: RecruitmentVerificationState;
+  verifiedAt: string;
+  source: RecruitmentEvidenceSource;
+}
+
+export interface KoreanSuitabilityObservation {
+  koreanAudienceSuitable: boolean | null;
+  domesticActivitySuitable: boolean | null;
+  foreignAudienceRisk: boolean | null;
+  verificationState: RecruitmentVerificationState;
+  verifiedAt: string;
+  source: RecruitmentEvidenceSource;
+}
+
+export interface KoreanSuitabilityEvidence {
+  koreanAudienceSuitable: boolean | null;
+  domesticActivitySuitable: boolean | null;
+  foreignAudienceRisk: boolean | null;
+  verificationState: RecruitmentVerificationState;
+  verifiedAt: string;
+  sources: RecruitmentEvidenceSource[];
+  observations: KoreanSuitabilityObservation[];
+}
+
+export interface RecruitmentEvidence {
+  contacts: PublicContactEvidence[];
+  contactVerificationState: RecruitmentVerificationState;
+  affiliations: AffiliationEvidence[];
+  affiliationVerificationState: RecruitmentVerificationState;
+  koreanSuitability: KoreanSuitabilityEvidence;
+}
 
 export interface CreatorIdentity {
   internalId: string;
@@ -53,6 +106,7 @@ export interface VerificationEvidence {
   emailVerificationState: VerificationState;
   emailClassification: EmailClassification;
   recruitmentSuitability: boolean | null;
+  recruitmentEvidence: RecruitmentEvidence;
   evidenceSource: string;
   verifiedAt: string;
 }

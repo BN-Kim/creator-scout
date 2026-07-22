@@ -1,5 +1,6 @@
 import type { CollectedYouTubeEvidence, ResolvedYouTubeIdentity } from "@/server/providers/youtube/provider-types";
-import type { CreatorInput } from "@/types/domain";
+import { applyRecruitmentEvidence } from "@/server/providers/recruitment/verification-evidence";
+import type { CreatorInput, RecruitmentEvidence } from "@/types/domain";
 
 export interface CreatorInputAssemblyContext {
   category: string;
@@ -10,9 +11,10 @@ export type CreatorInputAssembler = (
   identity: ResolvedYouTubeIdentity,
   evidence: CollectedYouTubeEvidence,
   context: CreatorInputAssemblyContext,
+  recruitmentEvidence?: RecruitmentEvidence,
 ) => CreatorInput;
 
-export const createCreatorInputFromYouTubeEvidence: CreatorInputAssembler = (identity, evidence, context) => ({
+export const createCreatorInputFromYouTubeEvidence: CreatorInputAssembler = (identity, evidence, context, recruitmentEvidence) => ({
   identity: {
     internalId: `youtube:${identity.channelId}`,
     channelName: evidence.channel.channelName,
@@ -25,7 +27,9 @@ export const createCreatorInputFromYouTubeEvidence: CreatorInputAssembler = (ide
     category: context.category,
     identityVerificationState: "confirmed",
   },
-  evidence: evidence.verificationEvidence,
+  evidence: recruitmentEvidence
+    ? applyRecruitmentEvidence(evidence.verificationEvidence, recruitmentEvidence)
+    : evidence.verificationEvidence,
   mockScenario: `youtube_provider:${context.sourceQuery}`,
   manualCorrection: null,
 });

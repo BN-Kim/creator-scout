@@ -1,4 +1,5 @@
 import { normalizeCreatorName } from "@/server/history/history-matcher";
+import { createUncheckedRecruitmentEvidence } from "@/server/providers/recruitment/approved-public-provider";
 import type { CreatorInput, CreatorIdentity, VerificationEvidence } from "@/types/domain";
 
 const verifiedAt = "2026-07-22T06:00:00.000Z";
@@ -10,7 +11,7 @@ function identity(index: number, category = "뷰티"): CreatorIdentity {
 }
 
 function evidence(): VerificationEvidence {
-  return { channelExists: true, channelNameMatches: true, confirmedChannelUrl: "확인됨", videosExist: true, latestUploadDate: "2026-07-15", latestUploadConfirmed: true, recentVideoCount: 5, recentVideoUrls: ["https://www.youtube.com/watch?v=MOCK001"], recentViewCounts: [18000, 17000, 15500, 16200, 17500], recentAverageViews: 16840, subscriberCount: 54000, uploadConsistency: true, contentType: "long_form", categoryFit: true, koreanAudienceSuitable: true, foreignAudienceRisk: false, overseasBaseRisk: false, celebrityRisk: false, officialChannelRisk: false, companyChannelRisk: false, brandChannelRisk: false, corporateChannelRisk: false, agencyRisk: false, managementRisk: false, mcnRisk: false, labelRisk: false, reuploadRisk: false, compilationRisk: false, contentFarmRisk: false, viralVideoDistortionRisk: false, visibleEmail: "creator01@example.invalid", emailVerificationState: "confirmed", emailClassification: "personal", recruitmentSuitability: true, evidenceSource: "2단계 UI 검증용 목 근거", verifiedAt };
+  return { channelExists: true, channelNameMatches: true, confirmedChannelUrl: "확인됨", videosExist: true, latestUploadDate: "2026-07-15", latestUploadConfirmed: true, recentVideoCount: 5, recentVideoUrls: ["https://www.youtube.com/watch?v=MOCK001"], recentViewCounts: [18000, 17000, 15500, 16200, 17500], recentAverageViews: 16840, subscriberCount: 54000, uploadConsistency: true, contentType: "long_form", categoryFit: true, koreanAudienceSuitable: true, foreignAudienceRisk: false, overseasBaseRisk: false, celebrityRisk: false, officialChannelRisk: false, companyChannelRisk: false, brandChannelRisk: false, corporateChannelRisk: false, agencyRisk: false, managementRisk: false, mcnRisk: false, labelRisk: false, reuploadRisk: false, compilationRisk: false, contentFarmRisk: false, viralVideoDistortionRisk: false, visibleEmail: "creator01@example.invalid", emailVerificationState: "confirmed", emailClassification: "personal", recruitmentSuitability: true, recruitmentEvidence: createUncheckedRecruitmentEvidence(), evidenceSource: "2단계 UI 검증용 목 근거", verifiedAt };
 }
 
 function mock(index: number, scenario: string, evidencePatch: Partial<VerificationEvidence> = {}, identityPatch: Partial<CreatorIdentity> = {}): CreatorInput {

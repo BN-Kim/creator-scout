@@ -1,5 +1,6 @@
 import { createHistoryRecord } from "@/server/history/history-record";
 import type { HistoryRepository } from "@/server/history/history-repository";
+import type { RecruitmentEvidenceProvider } from "@/server/providers/recruitment/provider-contract";
 import { toStableHistoryLookupIdentity } from "@/server/providers/youtube/history-prechecked-evidence";
 import type {
   YouTubeCandidateDiscoveryProvider,
@@ -28,6 +29,7 @@ export interface AutomaticScoutingPipelineDependencies {
   identityProvider: YouTubeIdentityProvider;
   evidenceProvider: YouTubeEvidenceProvider;
   historyRepository: HistoryRepository;
+  recruitmentEvidenceProvider?: RecruitmentEvidenceProvider;
   assembleCreatorInput?: CreatorInputAssembler;
   now?: () => Date;
 }
@@ -111,12 +113,27 @@ export class AutomaticScoutingPipeline {
         continue;
       }
 
+      let recruitmentEvidence;
+      try {
+        recruitmentEvidence = this.dependencies.recruitmentEvidenceProvider
+          ? (await this.dependencies.recruitmentEvidenceProvider.collectEvidence({
+              channelId: identityResult.identity.channelId,
+              channelName: identityResult.identity.channelName,
+              canonicalChannelUrl: identityResult.identity.canonicalChannelUrl,
+            })).normalized
+          : undefined;
+      } catch (error: unknown) {
+        failures.push(toFailure(error, "recruitment_evidence", channelId));
+        statistics.failed += 1;
+        continue;
+      }
+
       let creatorInput: CreatorInput;
       try {
         creatorInput = this.assembleCreatorInput(identityResult.identity, collectedEvidence, {
           category: request.category,
           sourceQuery: candidate.sourceQuery,
-        });
+        }, recruitmentEvidence);
       } catch (error: unknown) {
         failures.push(toFailure(error, "input_mapping", channelId));
         statistics.failed += 1;

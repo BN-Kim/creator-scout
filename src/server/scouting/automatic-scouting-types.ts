@@ -26,6 +26,7 @@ export type AutomaticScoutingFailureStage =
   | "identity_resolution"
   | "history_precheck"
   | "evidence_collection"
+  | "recruitment_evidence"
   | "input_mapping"
   | "evaluation"
   | "persistence";
