@@ -11,5 +11,6 @@
 - [`007-automatic-history-and-precheck.md`](007-automatic-history-and-precheck.md) — 자동 히스토리와 검증 전 중복 건너뛰기
 - [`008-live-recruitment-source-approval-required.md`](008-live-recruitment-source-approval-required.md) — H5.1 공개 출처와 제한된 수집 방식 승인
 - [`009-h6-sqlite-operations.md`](009-h6-sqlite-operations.md) — H6 단일 서버 예약·잠금·복구 경계
+- [`010-h7-production-operating-boundary.md`](010-h7-production-operating-boundary.md) — H7 단일 호스트 운영·백업·접근 제어 기준
 
 결정 변경은 [`product-rules.md`](../product-rules.md), 계약 테스트와 현재 상태 문서를 함께 갱신해야 합니다.

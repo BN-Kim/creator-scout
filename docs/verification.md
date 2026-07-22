@@ -44,3 +44,5 @@ H5 리크루팅 근거는 `tests/providers/recruitment-evidence-provider.test.ts
 H5.1 공개 출처 수집은 `tests/providers/live-recruitment-provider.test.ts`와 `tests/providers/public-web-client.test.ts`에서 검증합니다. 허구 스냅샷과 주입한 목 `fetch`만 사용해 소비자·커스텀 도메인 분류, 조직 하드 게이트, `robots.txt`, 로그인·CAPTCHA·401·403·429·타임아웃, 리디렉션·응답 크기, 한국어 활동 신호, 원문 HTML·비밀 비노출을 확인합니다. 자동 파이프라인 테스트는 히스토리 중복이 모든 리크루팅 호출을 건너뛰고 후보별 실패가 격리되는지 확인합니다. 라이브 YouTube·웹사이트·API 키·Docker·SearXNG는 테스트에 사용하지 않습니다.
 
 H6 예약과 운영은 `tests/operations/h6-operations.test.ts`에서 서로 다른 SQLite 연결의 조건부 잠금, 예약 계산, 중복 tick 방지, 제한 재시도와 실행 시작 간격, 만료 실행 복구, 상관관계 로그·모니터링, 운영 중지·재개를 검증합니다. 브라우저 스모크 테스트는 `/operations`에서 중지·재개, 예약 생성과 활성 상태 변경을 검증합니다. E2E에서는 백그라운드 주기 확인만 끄고 동일한 저장소·조정자·API를 사용해 네트워크 없이 결정적으로 실행합니다.
+
+H7은 코드나 외부 인프라를 추가하지 않는 의사결정 체크포인트입니다. [`operations-baseline.md`](operations-baseline.md)와 결정 010이 `database.ts`, 마이그레이션 v1~v3, `.env.example`, H6 런타임과 일치하는지 검토합니다. 특히 WAL 모드 SQLite 파일 세트, 단일 장기 실행 프로세스, 내부 접근 경계, 24시간 RPO·4시간 RTO·30일 보존과 운영 책임을 확인합니다. 기존 제품 계약의 비변경은 전체 Vitest와 Playwright 회귀 기준선으로 검증합니다.
