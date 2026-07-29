@@ -5,6 +5,7 @@ import { useState } from "react";
 import { PageHeader } from "@/components/page-header";
 import { RunCountdown } from "@/components/run-countdown";
 import { creatorCategories } from "@/config/labels";
+import { maximumDaysSinceLatestUploadRange } from "@/config/recommendation-rules";
 import { validateNewRun, type ValidationErrors } from "@/lib/validation";
 import type { NewRunInput } from "@/types/domain";
 
@@ -75,8 +76,8 @@ export default function NewRunPage(): React.ReactNode {
           <Field label="실행 이름" error={errors.name} hint="선택">
             <input className="input" value={values.name} onChange={(event) => setField("name", event.target.value)} placeholder="비워 두면 자동 생성" />
           </Field>
-          <Field label="최근 업로드 허용 최대 경과일" error={errors.maximumDaysSinceLatestUpload} hint="42~56일">
-            <NumberInput value={values.maximumDaysSinceLatestUpload} onChange={(value) => setField("maximumDaysSinceLatestUpload", value)} min={42} max={56} />
+          <Field label="최근 업로드 허용 최대 경과일" error={errors.maximumDaysSinceLatestUpload} hint="7~60일">
+            <NumberInput value={values.maximumDaysSinceLatestUpload} onChange={(value) => setField("maximumDaysSinceLatestUpload", value)} min={maximumDaysSinceLatestUploadRange.minimum} max={maximumDaysSinceLatestUploadRange.maximum} />
           </Field>
           <Field label="최소 최근 평균 조회수" error={errors.minimumRecentAverageViews} hint="조회수">
             <NumberInput value={values.minimumRecentAverageViews} onChange={(value) => setField("minimumRecentAverageViews", value)} min={0} />

@@ -135,6 +135,49 @@ describe("approved public recruitment evidence provider", () => {
 });
 
 describe("recruitment evidence decision mapping", () => {
+  it("accepts the same personal email repeated across approved public sources", async () => {
+    const secondSource = {
+      ...SOURCE,
+      sourceId: "fictional-youtube-video-description",
+      sourceType: "youtube_video_description" as const,
+      publicUrl: "https://www.youtube.com/watch?v=fictional-email-repeat",
+    };
+    const normalized = (await provider(response([
+      contact("personal", "creator@gmail.com"),
+      { ...contact("personal", "creator@gmail.com"), source: secondSource },
+    ]), [SOURCE.sourceId, secondSource.sourceId]).collectEvidence(REQUEST)).normalized;
+
+    expect(applyRecruitmentEvidence(mockCreatorInputs[0].evidence, normalized)).toMatchObject({
+      visibleEmail: "creator@gmail.com",
+      emailClassification: "personal",
+      emailVerificationState: "confirmed",
+    });
+  });
+
+  it("accepts multiple explicitly published personal contacts without treating addresses as conflicting ownership", async () => {
+    const secondSource = {
+      ...SOURCE,
+      sourceId: "fictional-second-personal-contact",
+      sourceType: "youtube_video_description" as const,
+      publicUrl: "https://www.youtube.com/watch?v=fictional-second-contact",
+    };
+    const normalized = (await provider(response([
+      contact("personal", "first@gmail.com"),
+      { ...contact("personal", "second@naver.com"), source: secondSource },
+    ])).collectEvidence(REQUEST)).normalized;
+
+    expect(normalized.contactVerificationState).toBe("confirmed");
+    expect(normalized.contacts.map((contactEvidence) => contactEvidence.email)).toEqual([
+      "first@gmail.com",
+      "second@naver.com",
+    ]);
+    expect(applyRecruitmentEvidence(mockCreatorInputs[0].evidence, normalized)).toMatchObject({
+      visibleEmail: "first@gmail.com",
+      emailClassification: "personal",
+      emailVerificationState: "confirmed",
+    });
+  });
+
   it("uses likely Korean-language activity as domestic activity without inventing audience geography", async () => {
     const recruitment = (await provider(response([])).collectEvidence(REQUEST)).normalized;
     recruitment.koreanLanguageActivity = {

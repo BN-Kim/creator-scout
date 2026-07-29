@@ -14,7 +14,9 @@ export function fictionalLiveConfig(
 ): LiveRecruitmentProviderConfig {
   return {
     consumerDomains: new Set(["gmail.com", "naver.com", "daum.net", "hanmail.net", "kakao.com"]),
+    organizationDomains: new Set(["cj.net"]),
     requestTimeoutMs: 25,
+    youtubeSurfaceTimeoutMs: 25,
     maxPagesPerSite: 5,
     maxOfficialSites: 3,
     maxRedirects: 2,
@@ -39,6 +41,8 @@ export function fictionalYouTubeSnapshot(
     language: null,
     officialLinks: [],
     recentVideos: [],
+    descriptionCollection: { channel: "empty", recentVideos: "empty" },
+    stopReasons: [],
     ...patch,
   };
 }

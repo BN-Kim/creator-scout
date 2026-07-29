@@ -15,14 +15,10 @@ describe("official YouTube recruitment surface client", () => {
       contentDetails: { relatedPlaylists: { uploads: "UUfictionaluploads" } },
     }] };
     const playlist = { items: [
-      { contentDetails: { videoId: "fictional-video-1" } },
-      { contentDetails: { videoId: "fictional-video-2" } },
+      { contentDetails: { videoId: "fictional-video-1" }, snippet: { title: "한국어 허구 영상", description: "공개 영상 설명" } },
+      { contentDetails: { videoId: "fictional-video-2" }, snippet: { title: "두 번째 허구 영상", description: null } },
     ] };
-    const videos = { items: [
-      { id: "fictional-video-1", snippet: { title: "한국어 허구 영상", description: "공개 영상 설명" } },
-      { id: "fictional-video-2", snippet: { title: "두 번째 허구 영상", description: null } },
-    ] };
-    const queue = new FetchQueue(jsonResponse(channel), jsonResponse(playlist), jsonResponse(videos));
+    const queue = new FetchQueue(jsonResponse(channel), jsonResponse(playlist));
     const client = new YouTubeDataApiRecruitmentClient(providerConfig(), { fetch: queue.fetch });
 
     const result = await client.collectPublicRecruitmentSurface(MOCK_CHANNEL_ID, 20);
@@ -38,9 +34,31 @@ describe("official YouTube recruitment surface client", () => {
         { videoId: "fictional-video-1", title: "한국어 허구 영상", description: "공개 영상 설명" },
         { videoId: "fictional-video-2", title: "두 번째 허구 영상", description: null },
       ],
+      descriptionCollection: { channel: "available", recentVideos: "available" },
+      stopReasons: [],
     });
-    expect(queue.urls).toHaveLength(3);
+    expect(queue.urls).toHaveLength(2);
+    expect(queue.urls[1].searchParams.get("part")).toBe("snippet,contentDetails");
     expect(queue.urls.every((url) => url.searchParams.get("key") !== null)).toBe(true);
+  });
+
+  it("preserves an already collected channel description when recent-video collection fails", async () => {
+    const queue = new FetchQueue(
+      jsonResponse({ items: [{
+        id: MOCK_CHANNEL_ID,
+        snippet: { title: "허구 부분 성공 채널", description: "공개 문의 partial@gmail.com" },
+        contentDetails: { relatedPlaylists: { uploads: "UUfictionalpartial" } },
+      }] }),
+      jsonResponse({ error: { errors: [{ reason: "backendError" }] } }, 503),
+    );
+    const client = new YouTubeDataApiRecruitmentClient(providerConfig(), { fetch: queue.fetch });
+
+    await expect(client.collectPublicRecruitmentSurface(MOCK_CHANNEL_ID, 20)).resolves.toMatchObject({
+      channelDescription: "공개 문의 partial@gmail.com",
+      recentVideos: [],
+      descriptionCollection: { channel: "available", recentVideos: "unavailable" },
+      stopReasons: ["temporary_failure"],
+    });
   });
 
   it("rejects malformed channel responses without exposing a provider body", async () => {

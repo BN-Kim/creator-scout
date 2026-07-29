@@ -34,9 +34,19 @@ export class YouTubeDataApiRecruitmentClient implements YouTubeRecruitmentSource
 
     const channelDescription = text(snippet?.description);
     const uploadsPlaylistId = text(relatedPlaylists?.uploads);
-    const recentVideos = uploadsPlaylistId
-      ? await this.collectRecentVideos(uploadsPlaylistId, maxVideos)
-      : [];
+    let recentVideos: YouTubeRecruitmentSnapshot["recentVideos"] = [];
+    let recentVideoCollection: YouTubeRecruitmentSnapshot["descriptionCollection"]["recentVideos"] = "empty";
+    const stopReasons: YouTubeRecruitmentSnapshot["stopReasons"] = [];
+    if (uploadsPlaylistId) {
+      try {
+        recentVideos = await this.collectRecentVideos(uploadsPlaylistId, maxVideos);
+        recentVideoCollection = recentVideos.length > 0 ? "available" : "empty";
+      } catch (error: unknown) {
+        if (!(error instanceof YouTubeProviderError)) throw error;
+        recentVideoCollection = "unavailable";
+        stopReasons.push(stopReasonFor(error));
+      }
+    }
 
     return {
       channelId,
@@ -46,40 +56,39 @@ export class YouTubeDataApiRecruitmentClient implements YouTubeRecruitmentSource
       language: text(snippet?.defaultLanguage),
       officialLinks: extractPublicUrls(channelDescription),
       recentVideos,
+      descriptionCollection: {
+        channel: channelDescription ? "available" : "empty",
+        recentVideos: recentVideoCollection,
+      },
+      stopReasons,
     };
   }
 
   private async collectRecentVideos(uploadsPlaylistId: string, maxVideos: number) {
     const rawPlaylist = await this.client.get("get_recruitment_video_ids", "playlistItems", {
-      part: "contentDetails",
+      part: "snippet,contentDetails",
       playlistId: uploadsPlaylistId,
       maxResults: String(maxVideos),
     });
-    const videoIds = items(rawPlaylist).flatMap((item) => {
+    return items(rawPlaylist).flatMap((item) => {
       const videoId = text(record(item.contentDetails)?.videoId);
-      return videoId ? [videoId] : [];
-    });
-    if (videoIds.length === 0) return [];
-
-    const rawVideos = await this.client.get("get_recruitment_videos", "videos", {
-      part: "snippet",
-      id: [...new Set(videoIds)].join(","),
-    });
-    const byId = new Map(items(rawVideos).flatMap((item) => {
-      const videoId = text(item.id);
       const snippet = record(item.snippet);
       const title = text(snippet?.title);
-      return videoId && title ? [[videoId, {
+      return videoId && title ? [{
         videoId,
         title,
         description: text(snippet?.description),
-      }] as const] : [];
-    }));
-    return videoIds.flatMap((videoId) => {
-      const video = byId.get(videoId);
-      return video ? [video] : [];
+      }] : [];
     });
   }
+}
+
+function stopReasonFor(error: YouTubeProviderError): YouTubeRecruitmentSnapshot["stopReasons"][number] {
+  if (error.category === "timeout") return "timeout";
+  if (["unauthorized", "access_restricted"].includes(error.category)) return "access_restricted";
+  if (["quota_exceeded", "rate_limited"].includes(error.category)) return "rate_limited";
+  if (["response_invalid", "provider_incompatible"].includes(error.category)) return "malformed_content";
+  return "temporary_failure";
 }
 
 function items(value: unknown): Array<Record<string, unknown>> {

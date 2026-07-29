@@ -32,9 +32,16 @@ const REQUEST = {
 
 describe("H5.1 live recruitment provider", () => {
   it("keeps the required consumer domains while allowing configured additions", () => {
-    const config = loadLiveRecruitmentProviderConfig({ ...process.env, RECRUITMENT_CONSUMER_DOMAINS: "examplemail.invalid" });
+    const config = loadLiveRecruitmentProviderConfig({
+      ...process.env,
+      RECRUITMENT_CONSUMER_DOMAINS: "examplemail.invalid",
+      RECRUITMENT_ORGANIZATION_DOMAINS: "fictional-company.example.invalid",
+    });
     expect([...config.consumerDomains]).toEqual(expect.arrayContaining([
       "gmail.com", "naver.com", "daum.net", "hanmail.net", "kakao.com", "examplemail.invalid",
+    ]));
+    expect([...config.organizationDomains]).toEqual(expect.arrayContaining([
+      "cj.net", "fictional-company.example.invalid",
     ]));
   });
 
@@ -59,6 +66,59 @@ describe("H5.1 live recruitment provider", () => {
       channelDescription: "Management representative: creator.manager@gmail.com",
     }));
     expect(result.normalized.contacts[0]).toMatchObject({ classification: "management", email: "creator.manager@gmail.com" });
+  });
+
+  it("keeps one confirmed personal contact when the same visible email repeats across descriptions", async () => {
+    const result = await collect(fictionalYouTubeSnapshot({
+      channelDescription: "공개 문의: creator @ gmail.com",
+      recentVideos: [{
+        videoId: "h51-repeated-visible-email",
+        title: "허구 영상",
+        description: "협업 문의 creator@gmail.com",
+      }],
+      descriptionCollection: { channel: "available", recentVideos: "available" },
+    }));
+    const evidence = applyRecruitmentEvidence(mockCreatorInputs[0].evidence, result.normalized);
+
+    expect(result.normalized.contacts).toHaveLength(2);
+    expect(evidence).toMatchObject({
+      visibleEmail: "creator@gmail.com",
+      emailClassification: "personal",
+      emailVerificationState: "confirmed",
+    });
+  });
+
+  it("preserves a channel-description email when recent video descriptions are unavailable", async () => {
+    const result = await collect(fictionalYouTubeSnapshot({
+      channelDescription: "공개 문의: partial@gmail.com",
+      descriptionCollection: { channel: "available", recentVideos: "unavailable" },
+      stopReasons: ["timeout"],
+    }));
+
+    expect(result.normalized.contacts[0]).toMatchObject({
+      email: "partial@gmail.com",
+      classification: "personal",
+      verificationState: "confirmed",
+    });
+    expect(result.raw.summary.stopReasons).toContain("timeout");
+  });
+
+  it("classifies the approved cj.net registrable domain as a company contact", async () => {
+    const result = await collect(fictionalYouTubeSnapshot({
+      channelDescription: "공개 문의: creator@media.cj.net",
+    }));
+    expect(result.normalized.contacts[0]).toMatchObject({
+      classification: "company",
+      email: "creator@media.cj.net",
+    });
+
+    const input = {
+      ...mockCreatorInputs[0],
+      evidence: applyRecruitmentEvidence(mockCreatorInputs[0].evidence, result.normalized),
+    };
+    const decision = evaluateCreator(input, defaultRecommendationSettings, [], [], new Date(H51_NOW));
+    expect(decision.decision).toBe("excluded");
+    expect(decision.reasonCodes).toContain("company_email");
   });
 
   it("feeds confirmed live organization contact into the existing exclusion hard gate", async () => {
@@ -127,6 +187,17 @@ describe("H5.1 live recruitment provider", () => {
     expect(result.normalized).toMatchObject({ contactVerificationState: "not_found", contacts: [{ email: null, verificationState: "not_found" }] });
   });
 
+  it("keeps contact evidence unchecked when recent descriptions could not be inspected", async () => {
+    const result = await collect(fictionalYouTubeSnapshot({
+      descriptionCollection: { channel: "empty", recentVideos: "unavailable" },
+      stopReasons: ["timeout"],
+    }));
+    expect(result.normalized).toMatchObject({
+      contactVerificationState: "not_checked",
+      contacts: [{ email: null, verificationState: "not_checked" }],
+    });
+  });
+
   it("keeps audience geography unknown while recording Korean-language activity separately", async () => {
     const result = await collect(fictionalYouTubeSnapshot({
       country: "KR",
@@ -145,7 +216,7 @@ describe("H5.1 live recruitment provider", () => {
   });
 
   it("returns unchecked evidence on YouTube timeout without exposing provider content", async () => {
-    const provider = new LiveRecruitmentEvidenceProvider(fictionalLiveConfig({ requestTimeoutMs: 5 }), {
+    const provider = new LiveRecruitmentEvidenceProvider(fictionalLiveConfig({ youtubeSurfaceTimeoutMs: 5 }), {
       youtubeClientFactory: async () => ({ collectPublicRecruitmentSurface: async () => new Promise(() => undefined) }),
       now: () => new Date(H51_NOW),
     });

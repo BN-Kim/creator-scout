@@ -14,6 +14,11 @@ export interface YouTubeRecruitmentSnapshot {
   language: string | null;
   officialLinks: string[];
   recentVideos: YouTubeRecruitmentVideo[];
+  descriptionCollection: {
+    channel: "available" | "empty";
+    recentVideos: "available" | "empty" | "unavailable";
+  };
+  stopReasons: PublicPageStopReason[];
 }
 
 export interface YouTubeRecruitmentSourceClient {

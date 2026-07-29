@@ -101,7 +101,7 @@ export function normalizeApprovedRecruitmentEvidence(
     contacts,
     contactVerificationState: aggregateState(
       contacts.map((item) => item.verificationState),
-      contacts.filter((item) => item.verificationState === "confirmed").map((item) => `${item.classification}:${item.email ?? "missing"}`),
+      contacts.filter((item) => item.verificationState === "confirmed").map((item) => item.classification),
     ),
     affiliations,
     affiliationVerificationState: aggregateState(

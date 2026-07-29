@@ -9,8 +9,11 @@ import type {
   RawPublicContactEvidence,
 } from "@/server/providers/recruitment/provider-types";
 import type { EmailClassification, OrganizationType } from "@/types/domain";
+import {
+  extractVisibleEmails,
+  normalizeVisibleEmailText,
+} from "@/server/providers/recruitment/visible-email-extractor";
 
-const emailPattern = /\b[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?(?:\.[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?)+\b/giu;
 const organizationPatterns: ReadonlyArray<[OrganizationType, RegExp]> = [
   ["mcn", /\bMCN\b|multi[- ]channel network|멀티채널|엠씨엔/iu],
   ["management", /\bmanager\b|\bmanagement\b|매니저|매니지먼트/iu],
@@ -24,6 +27,7 @@ export interface VisibleEmailClassificationInput {
   snapshot: YouTubeRecruitmentSnapshot;
   officialSites: OfficialSiteCollection[];
   consumerDomains: ReadonlySet<string>;
+  organizationDomains: ReadonlySet<string>;
   checkedAt: string;
 }
 
@@ -49,6 +53,7 @@ export function classifyVisibleRecruitmentEvidence(
   const contacts = sources.flatMap((source) => contactsFromSource(
     source,
     input.consumerDomains,
+    input.organizationDomains,
     officialDomainClassifications,
     input.checkedAt,
   ));
@@ -58,13 +63,14 @@ export function classifyVisibleRecruitmentEvidence(
   ])).values()];
   const affiliations = siteAffiliations(input.officialSites, input.snapshot.channelTitle, input.checkedAt);
   if (uniqueContacts.length === 0) {
+    const descriptionsComplete = input.snapshot.descriptionCollection.recentVideos !== "unavailable";
     uniqueContacts.push({
       kind: "contact",
       source: channelSource(input.snapshot),
       checkedAt: input.checkedAt,
-      verificationState: sources.length > 0 ? "not_found" : "not_checked",
+      verificationState: descriptionsComplete ? "not_found" : "not_checked",
       email: null,
-      declaredOwnerType: sources.length > 0 ? "not_found" : "not_checked",
+      declaredOwnerType: descriptionsComplete ? "not_found" : "not_checked",
     });
   }
   return { contacts: uniqueContacts, affiliations };
@@ -109,19 +115,27 @@ function textSources(snapshot: YouTubeRecruitmentSnapshot, sites: OfficialSiteCo
 function contactsFromSource(
   source: TextSource,
   consumerDomains: ReadonlySet<string>,
+  organizationDomains: ReadonlySet<string>,
   officialDomainClassifications: ReadonlyMap<string, EmailClassification>,
   checkedAt: string,
 ): RawPublicContactEvidence[] {
-  return [...source.text.matchAll(emailPattern)].map((match): RawPublicContactEvidence => {
-    const email = match[0].toLowerCase();
-    const nearby = source.text.slice(Math.max(0, (match.index ?? 0) - 160), (match.index ?? 0) + email.length + 160);
+  const normalizedText = normalizeVisibleEmailText(source.text);
+  return extractVisibleEmails(source.text).map((match): RawPublicContactEvidence => {
+    const nearby = normalizedText.slice(Math.max(0, match.index - 160), match.index + match.length + 160);
     return {
       kind: "contact",
       source: source.source,
       checkedAt,
       verificationState: "confirmed",
-      email,
-      declaredOwnerType: classifyEmail(email, nearby, source, consumerDomains, officialDomainClassifications),
+      email: match.email,
+      declaredOwnerType: classifyEmail(
+        match.email,
+        nearby,
+        source,
+        consumerDomains,
+        organizationDomains,
+        officialDomainClassifications,
+      ),
     };
   });
 }
@@ -131,12 +145,14 @@ function classifyEmail(
   nearby: string,
   source: TextSource,
   consumerDomains: ReadonlySet<string>,
+  organizationDomains: ReadonlySet<string>,
   officialDomainClassifications: ReadonlyMap<string, EmailClassification>,
 ): EmailClassification {
   const explicitOrganization = organizationType(nearby);
   if (explicitOrganization) return explicitOrganization;
   const emailHost = email.split("@")[1] ?? "";
   const emailDomain = getDomain(emailHost, { allowPrivateDomains: true })?.toLowerCase() ?? emailHost.toLowerCase();
+  if (organizationDomains.has(emailDomain) || organizationDomains.has(emailHost.toLowerCase())) return "company";
   if (consumerDomains.has(emailDomain) || consumerDomains.has(emailHost.toLowerCase())) return "personal";
   if (source.officialDomain && emailDomain === source.officialDomain) return source.siteClassification;
   return officialDomainClassifications.get(emailDomain) ?? "unknown";

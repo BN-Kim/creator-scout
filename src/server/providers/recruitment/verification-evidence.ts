@@ -11,9 +11,12 @@ export function applyRecruitmentEvidence(
     contact.classification as typeof organizationClassifications[number],
   ));
   const personalContacts = confirmedContacts.filter((contact) => contact.classification === "personal" && contact.email);
-  const contact = organizationContact ?? (personalContacts.length === 1 ? personalContacts[0] : null);
-  const hasContactConflict = !organizationContact && personalContacts.length > 1
-    && new Set(personalContacts.map((item) => item.email)).size > 1;
+  const uniquePersonalContacts = [...new Map(personalContacts.map((contact) => [
+    contact.email?.toLowerCase(),
+    contact,
+  ])).values()];
+  const hasContactConflict = !organizationContact && recruitment.contactVerificationState === "conflicting";
+  const contact = organizationContact ?? (!hasContactConflict ? uniquePersonalContacts[0] ?? null : null);
   const organizationAffiliations = recruitment.affiliations.filter(
     (item) => item.verificationState === "confirmed" && organizationClassifications.includes(
       item.affiliationType as typeof organizationClassifications[number],

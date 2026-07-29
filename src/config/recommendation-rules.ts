@@ -2,8 +2,12 @@ import { z } from "zod";
 import type { RecommendationSettings } from "@/types/domain";
 import type { EmailClassification, ReasonCode } from "@/types/domain";
 
+export const maximumDaysSinceLatestUploadRange = { minimum: 7, maximum: 60 } as const;
+
 export const recommendationSettingsSchema = z.object({
-  maximumDaysSinceLatestUpload: z.number().int().min(42).max(56),
+  maximumDaysSinceLatestUpload: z.number().int()
+    .min(maximumDaysSinceLatestUploadRange.minimum)
+    .max(maximumDaysSinceLatestUploadRange.maximum),
   minimumRecentVideoCount: z.number().int().min(2),
   preferredRecentVideoCount: z.number().int().min(3),
   minimumRecentAverageViews: z.number().min(0),

@@ -41,7 +41,7 @@ H4.3 자율 발견은 `tests/discovery/h43-discovery.test.ts`의 11개 테스트
 
 H5 리크루팅 근거는 `tests/providers/recruitment-evidence-provider.test.ts`에서 승인 출처 허용 목록, 개인·조직 연락처, 소속 유형, 국내 시청자·활동 적합성, 누락·미확인·상충 값, 출처별 확인 시각과 원본 분리를 검증합니다. 자동 파이프라인 테스트는 히스토리 선검사 뒤 신규 신원에만 H5 공급자를 호출하고 반복 실행이 추가 호출이나 히스토리 중복을 만들지 않으며 후보별 실패를 격리하는지 검증합니다. 모든 픽스처는 허구이며 실제 연락처나 실시간 외부 접근을 사용하지 않습니다.
 
-H5.1 공개 출처 수집은 `tests/providers/live-recruitment-provider.test.ts`와 `tests/providers/public-web-client.test.ts`에서 검증합니다. 허구 스냅샷과 주입한 목 `fetch`만 사용해 소비자·커스텀 도메인 분류, 조직 하드 게이트, `robots.txt`, 로그인·CAPTCHA·401·403·429·타임아웃, 리디렉션·응답 크기, 한국어 활동 신호, 원문 HTML·비밀 비노출을 확인합니다. 자동 파이프라인 테스트는 히스토리 중복이 모든 리크루팅 호출을 건너뛰고 후보별 실패가 격리되는지 확인합니다. 라이브 YouTube·웹사이트·API 키·Docker·SearXNG는 테스트에 사용하지 않습니다.
+H5.1 공개 출처 수집은 `tests/providers/live-recruitment-provider.test.ts`, `tests/providers/visible-email-extractor.test.ts`, `tests/providers/youtube-data-api-recruitment-client.test.ts`, `tests/providers/public-web-client.test.ts`에서 검증합니다. 허구 스냅샷과 주입한 목 `fetch`만 사용해 채널·영상 설명 수집, 영상 설명 부분 실패 시 채널 이메일 보존, 공백·전각·제로폭·명시적 `(at)/(dot)` 주소 정규화, 소비자·커스텀 도메인 분류, 승인된 `cj.net` 등록 가능 도메인의 회사 연락처 분류, 반복·복수 개인 연락처 집계, 조직 하드 게이트, `robots.txt`, 로그인·CAPTCHA·401·403·429·타임아웃, 리디렉션·응답 크기, 한국어 활동 신호, 원문 HTML·비밀 비노출을 확인합니다. 자동 파이프라인 테스트는 히스토리 중복이 모든 리크루팅 호출을 건너뛰고 후보별 실패가 격리되는지 확인합니다. 라이브 YouTube·웹사이트·API 키·Docker·SearXNG는 테스트에 사용하지 않습니다.
 
 H6 예약과 운영은 `tests/operations/h6-operations.test.ts`에서 서로 다른 SQLite 연결의 조건부 잠금, 예약 계산, 중복 tick 방지, 제한 재시도와 실행 시작 간격, 만료 실행 복구, 상관관계 로그·모니터링, 운영 중지·재개를 검증합니다. 브라우저 스모크 테스트는 `/operations`에서 중지·재개, 예약 생성과 활성 상태 변경을 검증합니다. E2E에서는 백그라운드 주기 확인만 끄고 동일한 저장소·조정자·API를 사용해 네트워크 없이 결정적으로 실행합니다.
 

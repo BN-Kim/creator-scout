@@ -1,5 +1,8 @@
 import { z } from "zod";
-import { defaultRecommendationSettings } from "@/config/recommendation-rules";
+import {
+  defaultRecommendationSettings,
+  maximumDaysSinceLatestUploadRange,
+} from "@/config/recommendation-rules";
 import { isApprovedCategory, isSafeDiscoveryQuery } from "@/server/discovery/discovery-taxonomy";
 import type { AutomaticRunConfiguration } from "@/server/operations/operation-types";
 
@@ -9,7 +12,10 @@ export const automaticRunConfigurationSchema = z.object({
   category: z.string().trim().default(""),
   keywords: z.string().trim().default(""),
   targetRecommendedCount: z.number().int().min(1).max(500),
-  maximumDaysSinceLatestUpload: z.number().int().min(42).max(56).default(defaultRecommendationSettings.maximumDaysSinceLatestUpload),
+  maximumDaysSinceLatestUpload: z.number().int()
+    .min(maximumDaysSinceLatestUploadRange.minimum)
+    .max(maximumDaysSinceLatestUploadRange.maximum)
+    .default(defaultRecommendationSettings.maximumDaysSinceLatestUpload),
   minimumRecentAverageViews: z.number().nonnegative().default(defaultRecommendationSettings.minimumRecentAverageViews),
   minimumRecentVideoCount: z.number().int().min(2).default(defaultRecommendationSettings.minimumRecentVideoCount),
 }).superRefine((input, context) => {

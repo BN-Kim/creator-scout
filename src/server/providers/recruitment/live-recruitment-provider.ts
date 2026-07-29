@@ -68,7 +68,7 @@ export class LiveRecruitmentEvidenceProvider implements RecruitmentEvidenceProvi
     try {
       snapshot = await withTimeout(
         this.getYouTubeClient().then((client) => client.collectPublicRecruitmentSurface(request.channelId, this.config.recentVideoLimit)),
-        this.config.requestTimeoutMs,
+        this.config.youtubeSurfaceTimeoutMs,
       );
     } catch (error: unknown) {
       if (isExpectedUnavailable(error)) return unavailableResult(request, checkedAt, unavailableReason(error));
@@ -94,6 +94,7 @@ export class LiveRecruitmentEvidenceProvider implements RecruitmentEvidenceProvi
       snapshot,
       officialSites,
       consumerDomains: this.config.consumerDomains,
+      organizationDomains: this.config.organizationDomains,
       checkedAt,
     });
     const unavailableContacts = officialSites.flatMap((site) => unavailableSiteObservations(site, checkedAt));
@@ -120,7 +121,10 @@ export class LiveRecruitmentEvidenceProvider implements RecruitmentEvidenceProvi
             ...officialSites.flatMap((site) => site.pages.map((page) => page.url)),
           ],
           checkedAt,
-          stopReasons: [...new Set(officialSites.flatMap((site) => site.stopReasons))],
+          stopReasons: [...new Set([
+            ...snapshot.stopReasons,
+            ...officialSites.flatMap((site) => site.stopReasons),
+          ])],
           itemCount: items.length,
         },
       },

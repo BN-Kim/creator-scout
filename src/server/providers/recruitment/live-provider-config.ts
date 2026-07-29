@@ -1,8 +1,11 @@
 const requiredConsumerDomains = ["gmail.com", "naver.com", "daum.net", "hanmail.net", "kakao.com"] as const;
+const requiredOrganizationDomains = ["cj.net"] as const;
 
 export interface LiveRecruitmentProviderConfig {
   consumerDomains: ReadonlySet<string>;
+  organizationDomains: ReadonlySet<string>;
   requestTimeoutMs: number;
+  youtubeSurfaceTimeoutMs: number;
   maxPagesPerSite: number;
   maxOfficialSites: number;
   maxRedirects: number;
@@ -21,9 +24,15 @@ export function loadLiveRecruitmentProviderConfig(
     .split(",")
     .map((value) => value.trim().toLowerCase())
     .filter(Boolean);
+  const configuredOrganizationDomains = (environment.RECRUITMENT_ORGANIZATION_DOMAINS ?? "")
+    .split(",")
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean);
   return {
     consumerDomains: new Set([...requiredConsumerDomains, ...configuredDomains]),
+    organizationDomains: new Set([...requiredOrganizationDomains, ...configuredOrganizationDomains]),
     requestTimeoutMs: integerSetting(environment.RECRUITMENT_REQUEST_TIMEOUT_MS, 8_000, 500, 30_000),
+    youtubeSurfaceTimeoutMs: integerSetting(environment.RECRUITMENT_YOUTUBE_SURFACE_TIMEOUT_MS, 30_000, 1_000, 120_000),
     maxPagesPerSite: integerSetting(environment.RECRUITMENT_MAX_PAGES_PER_SITE, 6, 1, 20),
     maxOfficialSites: integerSetting(environment.RECRUITMENT_MAX_OFFICIAL_SITES, 3, 1, 10),
     maxRedirects: integerSetting(environment.RECRUITMENT_MAX_REDIRECTS, 3, 0, 5),
