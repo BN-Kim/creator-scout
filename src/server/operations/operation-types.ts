@@ -91,6 +91,7 @@ export interface OperationsSnapshot {
   schedules: ScheduledScoutingJob[];
   executions: ScoutingRunExecution[];
   events: OperationalEvent[];
+  availableRunIds: string[];
 }
 
 export interface CoordinatedRunOutcome {

@@ -10,9 +10,11 @@ interface RunMetadata {
 export function LiveScoutingRunTable({
   executions,
   events,
+  availableRunIds,
 }: {
   executions: ScoutingRunExecution[];
   events: OperationalEvent[];
+  availableRunIds: string[];
 }): React.ReactNode {
   if (executions.length === 0) {
     return <p className="p-6 text-sm text-slate-500">아직 실제 추천 실행 기록이 없습니다.</p>;
@@ -36,11 +38,15 @@ export function LiveScoutingRunTable({
       <tbody className="divide-y divide-slate-100">
         {executions.map((execution) => {
           const metadata = metadataFor(execution, events);
+          const hasStoredResult = execution.runId !== null && availableRunIds.includes(execution.runId);
           return <tr key={execution.id} className="hover:bg-slate-50">
             <td className="whitespace-nowrap px-4 py-4 font-semibold text-ink">
-              {execution.runId
+              {execution.runId && hasStoredResult
                 ? <Link href={`/runs/${execution.runId}`} className="hover:text-brand hover:underline">{shortRunId(execution.runId)}</Link>
-                : shortRunId(execution.id)}
+                : <span className="inline-flex items-center gap-2">
+                    <span>{shortRunId(execution.runId ?? execution.id)}</span>
+                    {execution.runId && <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">상세 없음</span>}
+                  </span>}
             </td>
             <td className="whitespace-nowrap px-4 py-4 text-slate-600">{triggerLabel(execution.trigger)}</td>
             <td className="px-4 py-4 whitespace-nowrap text-slate-500">{formatDateTime(execution.startedAt)}</td>

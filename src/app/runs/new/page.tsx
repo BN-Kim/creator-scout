@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/page-header";
 import { RunCountdown } from "@/components/run-countdown";
 import { creatorCategories } from "@/config/labels";
 import { maximumDaysSinceLatestUploadRange } from "@/config/recommendation-rules";
+import { notifyOperationsChanged } from "@/lib/operations-refresh";
 import { validateNewRun, type ValidationErrors } from "@/lib/validation";
 import type { NewRunInput } from "@/types/domain";
 
@@ -38,6 +39,7 @@ export default function NewRunPage(): React.ReactNode {
       });
       const body = await response.json() as { runId?: string; message?: string };
       if (!response.ok || !body.runId) throw new Error(body.message ?? "추천 실행을 시작하지 못했습니다.");
+      notifyOperationsChanged();
       router.push(`/runs/${body.runId}`);
     } catch (error: unknown) {
       setSubmitError(error instanceof Error ? error.message : "추천 실행을 시작하지 못했습니다.");

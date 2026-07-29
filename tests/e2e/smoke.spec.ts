@@ -78,13 +78,19 @@ test("대시보드와 추천 실행 기록이 실제 서버 실행을 표시한�
   await page.getByLabel("추천 목표 수").fill("1");
   await page.getByRole("button", { name: "추천 실행 시작" }).click();
   await expect(page).toHaveURL(/\/runs\/automatic-[a-f0-9-]+$/);
+  const completedRunUrl = page.url();
 
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "최근 추천 실행" })).toBeVisible();
-  await expect(page.getByRole("link", { name: /automatic-/ }).first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: "실행 히스토리" })).toBeVisible();
+  const runLink = page.getByRole("link", { name: /automatic-/ }).first();
+  await expect(runLink).toBeVisible();
   await expect(page.getByText("실제 추천 실행과 SQLite 판정 기록", { exact: false })).toBeVisible();
+  await runLink.click();
+  await expect(page).toHaveURL(completedRunUrl);
+  await expect(page.getByRole("heading", { name: "자동 추천 실행" })).toBeVisible();
 
-  await page.getByRole("link", { name: "전체 실행 기록 보기" }).click();
+  await page.goto("/");
+  await page.getByRole("link", { name: "전체 실행 히스토리 보기" }).click();
   await expect(page).toHaveURL("/runs");
   await expect(page.getByRole("heading", { name: "추천 실행 기록" })).toBeVisible();
   await expect(page.getByRole("cell", { name: "완료" }).first()).toBeVisible();

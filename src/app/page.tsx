@@ -7,6 +7,7 @@ import { LiveScoutingRunTable } from "@/components/live-scouting-run-table";
 import { PageHeader } from "@/components/page-header";
 import { SummaryCard } from "@/components/summary-card";
 import { isKoreanCalendarDate } from "@/lib/format";
+import { subscribeToOperationsChanged } from "@/lib/operations-refresh";
 import { useOperationsSnapshot } from "@/lib/use-operations-snapshot";
 import type { HistoryRecord } from "@/types/domain";
 
@@ -31,10 +32,10 @@ export default function DashboardPage(): React.ReactNode {
       }
     };
     void refresh();
-    const timer = window.setInterval(() => { void refresh(); }, 3_000);
+    const unsubscribe = subscribeToOperationsChanged(() => { void refresh(); });
     return () => {
       active = false;
-      window.clearInterval(timer);
+      unsubscribe();
     };
   }, []);
 
@@ -61,11 +62,15 @@ export default function DashboardPage(): React.ReactNode {
     </section>
     <section className="panel mt-7 overflow-hidden">
       <div className="flex flex-col gap-2 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
-        <div><h2 className="text-lg font-bold text-ink">최근 추천 실행</h2><p className="mt-1 text-sm text-slate-500">서버 실행 상태를 3초마다 갱신합니다.</p></div>
-        <Link href="/runs" className="text-sm font-semibold text-brand hover:underline">전체 실행 기록 보기</Link>
+        <h2 className="text-lg font-bold text-ink">실행 히스토리</h2>
+        <Link href="/runs" className="text-sm font-semibold text-brand hover:underline">전체 실행 히스토리 보기</Link>
       </div>
       {operations.data
-        ? <LiveScoutingRunTable executions={operations.data.executions.slice(0, 8)} events={operations.data.events} />
+        ? <LiveScoutingRunTable
+            executions={operations.data.executions.slice(0, 8)}
+            events={operations.data.events}
+            availableRunIds={operations.data.availableRunIds}
+          />
         : <p className="p-6 text-sm text-slate-500">실행 기록을 불러오는 중입니다.</p>}
     </section>
   </>;

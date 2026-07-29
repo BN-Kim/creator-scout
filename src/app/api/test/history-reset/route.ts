@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerHistoryRepository } from "@/server/history/server-history-repository";
 import { getServerOperationRepository } from "@/server/operations/server-operation-repository";
+import { getServerAutomaticRunResultRepository } from "@/server/scouting/server-automatic-run-result-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,5 +13,6 @@ export function POST(request: NextRequest): NextResponse {
   getServerHistoryRepository().replace([]);
   const operations = getServerOperationRepository();
   operations.resetForTests(new Date().toISOString());
+  getServerAutomaticRunResultRepository().resetForTests();
   return NextResponse.json({ reset: true });
 }

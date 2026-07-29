@@ -5,6 +5,7 @@ import { automaticRunConfigurationSchema } from "@/server/operations/automatic-r
 import { loadOperationConfig } from "@/server/operations/operation-config";
 import { ensureOperationRuntime } from "@/server/operations/operation-runtime";
 import { getServerOperationRepository } from "@/server/operations/server-operation-repository";
+import { getServerAutomaticRunResultRepository } from "@/server/scouting/server-automatic-run-result-repository";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -57,9 +58,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
 function snapshot(): object {
   const repository = getServerOperationRepository();
+  const executions = repository.listExecutions(25);
+  const runIds = executions.flatMap((execution) => execution.runId ? [execution.runId] : []);
   return {
     monitoring: repository.getMonitoringSnapshot(new Date().toISOString()),
-    schedules: repository.listSchedules(), executions: repository.listExecutions(25), events: repository.listEvents(50),
+    schedules: repository.listSchedules(),
+    executions,
+    events: repository.listEvents(50),
+    availableRunIds: getServerAutomaticRunResultRepository().listAvailableRunIds(runIds),
   };
 }
 

@@ -1,18 +1,10 @@
 import type { AutomaticScoutingRunResult } from "@/server/scouting/automatic-scouting-types";
-
-const globalResults = globalThis as typeof globalThis & {
-  automaticScoutingRunResults?: Map<string, AutomaticScoutingRunResult>;
-};
-
-function resultStore(): Map<string, AutomaticScoutingRunResult> {
-  globalResults.automaticScoutingRunResults ??= new Map();
-  return globalResults.automaticScoutingRunResults;
-}
+import { getServerAutomaticRunResultRepository } from "@/server/scouting/server-automatic-run-result-repository";
 
 export function saveAutomaticRunResult(result: AutomaticScoutingRunResult): void {
-  resultStore().set(result.runId, result);
+  getServerAutomaticRunResultRepository().save(result);
 }
 
 export function getAutomaticRunResult(runId: string): AutomaticScoutingRunResult | null {
-  return resultStore().get(runId) ?? null;
+  return getServerAutomaticRunResultRepository().get(runId);
 }

@@ -1,9 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { subscribeToOperationsChanged } from "@/lib/operations-refresh";
 import type { OperationsSnapshot } from "@/server/operations/operation-types";
-
-const refreshIntervalMs = 3_000;
 
 export function useOperationsSnapshot(): {
   data: OperationsSnapshot | null;
@@ -26,8 +25,7 @@ export function useOperationsSnapshot(): {
 
   useEffect(() => {
     void refresh();
-    const timer = window.setInterval(() => { void refresh(); }, refreshIntervalMs);
-    return () => window.clearInterval(timer);
+    return subscribeToOperationsChanged(() => { void refresh(); });
   }, [refresh]);
 
   return { data, error, refresh };

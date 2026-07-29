@@ -147,4 +147,19 @@ export const databaseMigrations: readonly DatabaseMigration[] = [
       "CREATE INDEX operational_events_correlation_idx ON operational_events(correlation_id, created_at)",
     ],
   },
+  {
+    version: 4,
+    name: "persist_automatic_run_results",
+    statements: [
+      `CREATE TABLE automatic_scouting_run_results (
+        run_id TEXT PRIMARY KEY,
+        result_json TEXT NOT NULL,
+        started_at TEXT NOT NULL,
+        completed_at TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      ) STRICT`,
+      "CREATE INDEX automatic_run_results_completed_idx ON automatic_scouting_run_results(completed_at DESC)",
+    ],
+  },
 ];
