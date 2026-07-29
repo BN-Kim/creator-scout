@@ -14,6 +14,22 @@ describe("deterministic creator evaluation", () => {
   it("manual correction overrides positive evidence", () => { const result = evaluate(23); expect(result.decision).toBe("excluded"); expect(result.reasonCodes).toContain("user_corrected_invalid"); });
   it("does not invent a subscriber threshold", () => { const result = evaluate(24); expect(result.decision).toBe("recommended"); expect(result.warningChecks.join(" ")).toContain("구독자 기준"); });
 
+  it("excludes a low-view creator when every available recent video has a confirmed view count", () => {
+    const base = mockCreatorInputs[0];
+    const result = evaluateCreator({
+      ...base,
+      evidence: {
+        ...base.evidence,
+        recentVideoCount: 2,
+        recentViewCounts: [102, 102],
+        recentAverageViews: 102,
+      },
+    }, defaultRecommendationSettings, [], [], new Date("2026-07-22T07:00:00Z"));
+    expect(result.decision).toBe("excluded");
+    expect(result.reasonCodes).toContain("recent_views_below_threshold");
+    expect(result.missingVerificationFields).not.toContain("대표 최근 조회수");
+  });
+
   it("accepts exact channel-ID identity without a separate channel-name confirmation gate", () => {
     const base = mockCreatorInputs[0];
     const result = evaluateCreator({ ...base, evidence: { ...base.evidence, channelNameMatches: false } }, defaultRecommendationSettings, [], [], new Date("2026-07-22T07:00:00Z"));

@@ -11,5 +11,10 @@ export function evaluateRecentTraffic(evidence: VerificationEvidence, settings: 
   const sorted = [...sample].sort((a, b) => a - b);
   const median = sorted[Math.floor(sorted.length / 2)] ?? 0;
   const viralDistortion = sample.length >= 3 && median > 0 && Math.max(...sample) >= median * 5;
-  return { average, complete: sample.length >= settings.defaultRecentAverageWindow, viralDistortion, belowThreshold: average < settings.minimumRecentAverageViews };
+  const requiredSampleSize = evidence.recentVideoCount === null
+    ? settings.defaultRecentAverageWindow
+    : Math.min(settings.defaultRecentAverageWindow, evidence.recentVideoCount);
+  const complete = requiredSampleSize >= settings.minimumRecentVideoCount
+    && sample.length >= requiredSampleSize;
+  return { average, complete, viralDistortion, belowThreshold: average < settings.minimumRecentAverageViews };
 }

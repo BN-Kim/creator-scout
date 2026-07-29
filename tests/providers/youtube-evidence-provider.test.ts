@@ -125,7 +125,7 @@ describe("YouTube evidence provider", () => {
     expect(evidence.recentVideoUrls).not.toContain("https://www.youtube.com/watch?v=fictional-old");
   });
 
-  it("keeps recent count and average unknown when the official response is incomplete", () => {
+  it("keeps the exact recent count unknown but preserves confirmed public view samples when one upload is unavailable", () => {
     const channel = {
       evidenceSource: "youtube_data_api_v3" as const,
       channelId: MOCK_CHANNEL_ID, channelName: "허구 목 채널", handle: null,
@@ -150,7 +150,38 @@ describe("YouTube evidence provider", () => {
       averageViewSampleSize: 10,
     });
     expect(evidence.recentVideoCount).toBeNull();
-    expect(evidence.recentAverageViews).toBeNull();
+    expect(evidence.recentViewCounts).toEqual([1200]);
+    expect(evidence.recentAverageViews).toBe(1200);
+  });
+
+  it("does not let one unavailable upload erase enough confirmed low-view samples for exclusion", () => {
+    const channel = {
+      evidenceSource: "youtube_data_api_v3" as const,
+      channelId: MOCK_CHANNEL_ID, channelName: "허구 조회수 채널", handle: null,
+      canonicalChannelUrl: identity.canonicalChannelUrl, subscriberCount: null, subscriberCountHidden: true,
+      publicVideoCount: 6, channelPublishedAt: null, country: "KR", uploadsPlaylistId: "UUfictionaluploads",
+    };
+    const videos = Array.from({ length: 5 }, (_, index) => ({
+      videoId: `fictional-low-${index}`,
+      publishedAt: `2026-07-${String(20 - index).padStart(2, "0")}T00:00:00Z`,
+      viewCount: 1000 + index * 100,
+      durationSeconds: 600,
+      durationClass: "long_form_length" as const,
+    }));
+    const evidence = createVerificationEvidence(channel, {
+      videos,
+      shortsLengthSamples: [],
+      longFormLengthSamples: videos,
+      unknownDurationSamples: [],
+      unavailableVideoIds: ["fictional-unavailable"],
+    }, new Date("2026-07-22T00:00:00Z"), {
+      maximumDaysSinceLatestUpload: 42,
+      averageViewSampleSize: 10,
+    });
+
+    expect(evidence.recentVideoCount).toBeNull();
+    expect(evidence.recentViewCounts).toEqual([1000, 1100, 1200, 1300, 1400]);
+    expect(evidence.recentAverageViews).toBe(1200);
   });
 
   it("maps only available normalized data into the existing evidence domain", () => {

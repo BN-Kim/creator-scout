@@ -22,7 +22,7 @@ export function createVerificationEvidence(
   const recentVideoCount = metricEvidenceComplete ? eligibleVideos.length : null;
   const viewSample = eligibleVideos.slice(0, window?.averageViewSampleSize ?? eligibleVideos.length);
   const viewCounts = viewSample.map((video) => video.viewCount);
-  const completeViewCounts = metricEvidenceComplete && viewCounts.length > 0
+  const completeViewCounts = viewCounts.length > 0
     && viewCounts.every((value): value is number => value !== null) ? viewCounts : null;
   const recentAverageViews = completeViewCounts
     ? Math.round(completeViewCounts.reduce((total, value) => total + value, 0) / completeViewCounts.length)
