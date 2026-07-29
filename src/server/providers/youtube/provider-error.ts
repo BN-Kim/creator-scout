@@ -17,6 +17,7 @@ export interface YouTubeProviderErrorOptions {
   operation: string;
   retryable: boolean;
   status?: number;
+  retryAfterMs?: number;
 }
 
 export class YouTubeProviderError extends Error {
@@ -24,6 +25,7 @@ export class YouTubeProviderError extends Error {
   readonly operation: string;
   readonly retryable: boolean;
   readonly status?: number;
+  readonly retryAfterMs?: number;
 
   constructor(message: string, options: YouTubeProviderErrorOptions) {
     super(message);
@@ -32,6 +34,7 @@ export class YouTubeProviderError extends Error {
     this.operation = options.operation;
     this.retryable = options.retryable;
     this.status = options.status;
+    this.retryAfterMs = options.retryAfterMs;
   }
 
   toJSON(): Record<string, string | number | boolean | undefined> {
@@ -42,6 +45,7 @@ export class YouTubeProviderError extends Error {
       operation: this.operation,
       retryable: this.retryable,
       status: this.status,
+      retryAfterMs: this.retryAfterMs,
     };
   }
 }

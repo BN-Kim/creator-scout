@@ -12,6 +12,8 @@ export function providerConfig(overrides: Partial<YouTubeProviderConfig> = {}): 
     requestTimeoutMs: 100,
     maxRetries: 0,
     retryBaseDelayMs: 0,
+    maxRateLimitRetries: 0,
+    rateLimitRetryBaseDelayMs: 0,
     ...overrides,
   };
 }

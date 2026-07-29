@@ -27,7 +27,8 @@ export class YouTubeApiClient {
     for (const [key, value] of Object.entries(parameters)) url.searchParams.set(key, value);
     url.searchParams.set("key", this.config.apiKey);
 
-    for (let attempt = 0; attempt <= this.config.maxRetries; attempt += 1) {
+    const maximumRetryCount = Math.max(this.config.maxRetries, this.config.maxRateLimitRetries);
+    for (let attempt = 0; attempt <= maximumRetryCount; attempt += 1) {
       const displayAttempt = attempt + 1;
       this.logger.log({ event: "request_started", operation, attempt: displayAttempt });
       try {
@@ -46,9 +47,15 @@ export class YouTubeApiClient {
       } catch (cause) {
         const error = normalizeRequestError(cause, operation);
         this.logger.log({ event: "request_failed", operation, attempt: displayAttempt, status: error.status, category: error.category });
-        if (!error.retryable || attempt >= this.config.maxRetries) throw error;
+        const retryLimit = error.category === "rate_limited"
+          ? this.config.maxRateLimitRetries
+          : this.config.maxRetries;
+        if (!error.retryable || attempt >= retryLimit) throw error;
         this.logger.log({ event: "retry_scheduled", operation, attempt: displayAttempt, status: error.status, category: error.category });
-        await this.sleep(this.config.retryBaseDelayMs * (2 ** attempt));
+        const baseDelay = error.category === "rate_limited"
+          ? this.config.rateLimitRetryBaseDelayMs
+          : this.config.retryBaseDelayMs;
+        await this.sleep(Math.max(baseDelay * (2 ** attempt), error.retryAfterMs ?? 0));
       }
     }
     throw new YouTubeProviderError("YouTube provider request failed.", {
@@ -82,13 +89,23 @@ async function classifyResponseError(response: Response, operation: string): Pro
   let body: unknown = null;
   try { body = await response.json() as unknown; } catch { body = null; }
   const reason = extractGoogleErrorReason(body);
-  const classification = classifyStatus(response.status, reason);
+  const classification = classifyStatus(response.status, reason, operation);
   return new YouTubeProviderError(messageForCategory(classification.category), {
     category: classification.category,
     operation,
     retryable: classification.retryable,
     status: response.status,
+    retryAfterMs: retryAfterMilliseconds(response.headers.get("retry-after")),
   });
+}
+
+function retryAfterMilliseconds(value: string | null): number | undefined {
+  if (!value) return undefined;
+  const seconds = Number(value);
+  if (Number.isFinite(seconds) && seconds >= 0) return Math.min(seconds * 1_000, 120_000);
+  const dateMs = Date.parse(value);
+  if (Number.isNaN(dateMs)) return undefined;
+  return Math.min(Math.max(dateMs - Date.now(), 0), 120_000);
 }
 
 function extractGoogleErrorReason(value: unknown): string | null {
@@ -97,7 +114,10 @@ function extractGoogleErrorReason(value: unknown): string | null {
   return isRecord(first) && typeof first.reason === "string" ? first.reason : null;
 }
 
-function classifyStatus(status: number, reason: string | null): { category: YouTubeProviderErrorCategory; retryable: boolean } {
+function classifyStatus(status: number, reason: string | null, operation: string): { category: YouTubeProviderErrorCategory; retryable: boolean } {
+  if (operation === "discover_candidates" && status === 429 && reason === "rateLimitExceeded") {
+    return { category: "quota_exceeded", retryable: false };
+  }
   if (["quotaExceeded", "dailyLimitExceeded", "dailyLimitExceededUnreg"].includes(reason ?? "")) return { category: "quota_exceeded", retryable: false };
   if (["rateLimitExceeded", "userRateLimitExceeded"].includes(reason ?? "") || status === 429) return { category: "rate_limited", retryable: true };
   if (status === 400) return { category: "invalid_input", retryable: false };
@@ -112,6 +132,7 @@ function normalizeRequestError(cause: unknown, operation: string): YouTubeProvid
     if (cause.operation === "request") {
       return new YouTubeProviderError(cause.message, {
         category: cause.category, operation, retryable: cause.retryable, status: cause.status,
+        retryAfterMs: cause.retryAfterMs,
       });
     }
     return cause;

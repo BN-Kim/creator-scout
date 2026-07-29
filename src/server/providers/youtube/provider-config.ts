@@ -6,6 +6,8 @@ export interface YouTubeProviderConfig {
   requestTimeoutMs: number;
   maxRetries: number;
   retryBaseDelayMs: number;
+  maxRateLimitRetries: number;
+  rateLimitRetryBaseDelayMs: number;
 }
 
 export function loadYouTubeProviderConfig(environment: NodeJS.ProcessEnv = process.env): YouTubeProviderConfig {
@@ -23,6 +25,8 @@ export function loadYouTubeProviderConfig(environment: NodeJS.ProcessEnv = proce
     requestTimeoutMs: parseInteger(environment.YOUTUBE_REQUEST_TIMEOUT_MS, 10_000, 100, 120_000, "YOUTUBE_REQUEST_TIMEOUT_MS"),
     maxRetries: parseInteger(environment.YOUTUBE_MAX_RETRIES, 2, 0, 5, "YOUTUBE_MAX_RETRIES"),
     retryBaseDelayMs: 250,
+    maxRateLimitRetries: parseInteger(environment.YOUTUBE_RATE_LIMIT_MAX_RETRIES, 5, 0, 8, "YOUTUBE_RATE_LIMIT_MAX_RETRIES"),
+    rateLimitRetryBaseDelayMs: parseInteger(environment.YOUTUBE_RATE_LIMIT_RETRY_BASE_DELAY_MS, 5_000, 1_000, 60_000, "YOUTUBE_RATE_LIMIT_RETRY_BASE_DELAY_MS"),
   };
 }
 

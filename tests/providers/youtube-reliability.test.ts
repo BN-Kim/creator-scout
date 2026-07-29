@@ -68,6 +68,50 @@ describe("YouTube provider reliability", () => {
     await expect(provider.resolveIdentity({ kind: "channel_id", value: MOCK_CHANNEL_ID })).rejects.toMatchObject({ category: "rate_limited", retryable: true });
   });
 
+  it("uses a longer bounded backoff for rate limits and recovers without changing providers", async () => {
+    const rateLimited = new Response(JSON.stringify({ error: { errors: [{ reason: "rateLimitExceeded" }] } }), {
+      status: 429,
+      headers: { "Content-Type": "application/json", "Retry-After": "7" },
+    });
+    const queue = new FetchQueue(rateLimited, jsonResponse(rawIdentityChannel()));
+    const delays: number[] = [];
+    const provider = new YouTubeDataApiProvider(providerConfig({
+      maxRetries: 0,
+      maxRateLimitRetries: 1,
+      rateLimitRetryBaseDelayMs: 5_000,
+    }), {
+      fetch: queue.fetch,
+      sleep: async (milliseconds) => { delays.push(milliseconds); },
+    });
+
+    const result = await provider.resolveIdentity({ kind: "channel_id", value: MOCK_CHANNEL_ID });
+
+    expect(result.identity.channelId).toBe(MOCK_CHANNEL_ID);
+    expect(queue.urls).toHaveLength(2);
+    expect(delays).toEqual([7_000]);
+  });
+
+  it("treats the search-specific 429 as exhausted daily search quota without retrying", async () => {
+    const queue = new FetchQueue(jsonResponse({ error: { errors: [{ reason: "rateLimitExceeded" }] } }, 429));
+    const delays: number[] = [];
+    const provider = new YouTubeDataApiProvider(providerConfig({
+      maxRateLimitRetries: 5,
+      rateLimitRetryBaseDelayMs: 5_000,
+    }), {
+      fetch: queue.fetch,
+      sleep: async (milliseconds) => { delays.push(milliseconds); },
+    });
+
+    await expect(provider.discoverCandidates({ query: "허구 검색", maxResults: 3 })).rejects.toMatchObject({
+      category: "quota_exceeded",
+      operation: "discover_candidates",
+      retryable: false,
+      status: 429,
+    });
+    expect(queue.urls).toHaveLength(1);
+    expect(delays).toEqual([]);
+  });
+
   it("never exposes credentials in returned errors or request logs", async () => {
     const events: YouTubeProviderLogEvent[] = [];
     const logger: YouTubeProviderLogger = { log: (event) => { events.push(event); } };

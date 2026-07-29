@@ -80,7 +80,7 @@ describe("automatic scouting pipeline", () => {
     expect(result.statistics).toEqual({
       discoveryMode: "manual_replace",
       queriesAttempted: 1,
-      pagesScanned: 2,
+      pagesScanned: 1,
       targetRecommendedCount: 2,
       recommendationsFilled: 1,
       discovered: 3,
@@ -160,7 +160,7 @@ describe("automatic scouting pipeline", () => {
     expect(backingRepository.load()).toHaveLength(1);
   });
 
-  it("continues across provider pages and never requests more than the remaining recommendation slots", async () => {
+  it("fetches quota-efficient discovery pages but stops evaluation exactly at the recommendation target", async () => {
     const repository = createRepository();
     const pages = [[CHANNEL_A, CHANNEL_B], [CHANNEL_C, CHANNEL_D]];
     const discoveryCalls: number[] = [];
@@ -181,7 +181,7 @@ describe("automatic scouting pipeline", () => {
     });
     const result = await harness.pipeline.run(request(2));
 
-    expect(discoveryCalls).toEqual([2, 1]);
+    expect(discoveryCalls).toEqual([50, 50]);
     expect(result.statistics.discovered).toBe(3);
     expect(result.results).toHaveLength(3);
     expect(result.statistics).toMatchObject({ recommended: 2, recommendationsFilled: 2, stopReason: "target_reached" });
@@ -253,7 +253,7 @@ describe("automatic scouting pipeline", () => {
     expect(result.statistics).toEqual({
       discoveryMode: "manual_replace",
       queriesAttempted: 1,
-      pagesScanned: 2,
+      pagesScanned: 1,
       targetRecommendedCount: 5,
       recommendationsFilled: 5,
       discovered: 10,
@@ -310,7 +310,7 @@ describe("automatic scouting pipeline", () => {
     const repository = createRepository();
     const harness = createHarness([CHANNEL_A, CHANNEL_B], repository);
     const result = await harness.pipeline.run(request(1, { maxDiscoveryPages: 1 }));
-    expect(result.statistics).toMatchObject({ discovered: 1, hold: 1, stopReason: "page_limit_reached" });
+    expect(result.statistics).toMatchObject({ discovered: 2, hold: 2, stopReason: "page_limit_reached" });
   });
 
   it("stops before scheduling a candidate after the configured run duration", async () => {
@@ -353,6 +353,36 @@ describe("automatic scouting pipeline", () => {
     const result = await harness.pipeline.run(request(1, { maxProviderFailures: 1 }));
     expect(result.statistics).toMatchObject({ discovered: 1, failed: 1, recommended: 0, stopReason: "provider_failure_limit_reached" });
     expect(result.results).toEqual([]);
+    expect(repository.load()).toEqual([]);
+  });
+
+  it("stops a run-wide discovery rate limit without exhausting every query", async () => {
+    const repository = createRepository();
+    let discoveryCalls = 0;
+    const discoveryProvider: YouTubeCandidateDiscoveryProvider = {
+      discoverCandidates: async () => {
+        discoveryCalls += 1;
+        throw new YouTubeProviderError("fictional rate limit", {
+          category: "rate_limited",
+          operation: "discover_candidates",
+          retryable: true,
+          status: 429,
+        });
+      },
+    };
+    const harness = createHarness([], repository, { discoveryProvider });
+
+    const result = await harness.pipeline.run(request(3));
+
+    expect(result.statistics).toMatchObject({
+      recommendationsFilled: 0,
+      failed: 1,
+      stopReason: "provider_failure_limit_reached",
+    });
+    expect(result.failures).toEqual([
+      expect.objectContaining({ stage: "discovery", category: "rate_limited", retryable: true }),
+    ]);
+    expect(discoveryCalls).toBe(1);
     expect(repository.load()).toEqual([]);
   });
 
@@ -406,7 +436,7 @@ describe("automatic scouting pipeline", () => {
     expect(holdState.listLearnedTerms()).toEqual([]);
   });
 
-  it("continues across automatically selected queries and keeps batches target-aware", async () => {
+  it("continues across automatically selected queries with quota-efficient discovery batches", async () => {
     const repository = createRepository();
     const discoveryState = new InMemoryDiscoveryStateRepository();
     const ids = [CHANNEL_A, CHANNEL_B];
@@ -427,7 +457,7 @@ describe("automatic scouting pipeline", () => {
       settings: defaultRecommendationSettings,
     });
     expect(result.statistics).toMatchObject({ discoveryMode: "automatic", queriesAttempted: 2, pagesScanned: 2, recommended: 2, stopReason: "target_reached" });
-    expect(calls.map((call) => call.maxResults)).toEqual([2, 1]);
+    expect(calls.map((call) => call.maxResults)).toEqual([50, 50]);
     expect(new Set(calls.map((call) => call.query)).size).toBe(2);
   });
 });

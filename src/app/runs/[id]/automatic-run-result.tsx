@@ -18,6 +18,19 @@ const stopReasonLabels: Record<AutomaticScoutingStopReason, string> = {
   time_limit_reached: "실행 시간 한도에 도달해 부분 완료했습니다.",
   provider_failure_limit_reached: "공급자 실패 한도에 도달해 부분 완료했습니다.",
 };
+const failureCategoryLabels: Readonly<Record<string, string>> = {
+  configuration: "공급자 설정 오류",
+  quota_exceeded: "YouTube 일일 검색 할당량 소진",
+  rate_limited: "YouTube 요청 속도 제한",
+  unauthorized: "YouTube API 인증 오류",
+  timeout: "공급자 응답 시간 초과",
+  temporary: "공급자 일시 오류",
+  response_invalid: "공급자 응답 형식 오류",
+  evidence_unavailable: "검증 근거 미제공",
+  provider_incompatible: "공급자 호환성 오류",
+  storage: "히스토리 저장 오류",
+  internal: "내부 처리 오류",
+};
 
 export function AutomaticRunResult({ run }: { run: AutomaticScoutingRunResult }): React.ReactNode {
   const groups = groupResults(run.results);
@@ -41,8 +54,19 @@ export function AutomaticRunResult({ run }: { run: AutomaticScoutingRunResult })
     {run.results.length === 0
       ? <EmptyState title="새로 처리된 결과가 없습니다" description="중복 또는 공급자 실패로 판정과 히스토리가 생성되지 않았습니다." />
       : <div className="space-y-6">{(["recommended", "hold", "excluded"] as const).map((decision) => <ResultGroup key={decision} decision={decision} creators={groups[decision]} />)}</div>}
-    {run.failures.length > 0 && <p className="mt-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">후보 {run.failures.length}개의 처리 실패는 추천 목표에 포함되지 않습니다.</p>}
+    {run.failures.length > 0 && <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+      <p>처리 실패 {run.failures.length}건은 추천 목표에 포함되지 않습니다.</p>
+      <p className="mt-1 font-medium">{failureSummary(run)}</p>
+    </div>}
   </>;
+}
+
+function failureSummary(run: AutomaticScoutingRunResult): string {
+  const counts = new Map<string, number>();
+  for (const failure of run.failures) counts.set(failure.category, (counts.get(failure.category) ?? 0) + 1);
+  return [...counts.entries()]
+    .map(([category, count]) => `${failureCategoryLabels[category] ?? "기타 공급자 오류"} ${count}건`)
+    .join(" · ");
 }
 
 function ResultGroup({ decision, creators }: { decision: CreatorDecision; creators: EvaluatedCreator[] }): React.ReactNode {

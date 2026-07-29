@@ -71,9 +71,8 @@ export class AutomaticScoutingPipeline {
       const queryState = selector.next(statistics.recommendationsFilled);
       if (!queryState) { stopReason = "source_exhausted"; break; }
       attemptedQueryKeys.add(queryState.normalizedKey);
-      const remainingRecommendationSlots = request.targetRecommendedCount - statistics.recommended;
       const remainingCandidateSlots = limits.maxScannedCandidates - statistics.discovered;
-      const batchSize = Math.min(50, remainingRecommendationSlots, remainingCandidateSlots);
+      const batchSize = Math.min(50, remainingCandidateSlots);
       const delta: DiscoveryQueryDelta = {};
 
       let page;
@@ -97,6 +96,10 @@ export class AutomaticScoutingPipeline {
         statistics.failed += 1;
         providerFailures += 1;
         stateRepository.setCooldown(queryState.normalizedKey, new Date(this.now().getTime() + 5 * 60_000).toISOString(), false, this.now().toISOString());
+        if (error instanceof YouTubeProviderError && isRunWideDiscoveryFailure(error.category)) {
+          stopReason = "provider_failure_limit_reached";
+          break;
+        }
         if (providerFailures >= limits.maxProviderFailures) { stopReason = "provider_failure_limit_reached"; break; }
         continue;
       }
@@ -296,6 +299,10 @@ export class AutomaticScoutingPipeline {
       return null;
     }
   }
+}
+
+function isRunWideDiscoveryFailure(category: YouTubeProviderError["category"]): boolean {
+  return ["configuration", "quota_exceeded", "rate_limited", "unauthorized"].includes(category);
 }
 
 class AutomaticScoutingDeadlineReachedError extends Error {

@@ -7,6 +7,8 @@ YouTube 수집은 공식 YouTube Data API v3만 사용합니다. 후보 발견, 
 - `YOUTUBE_API_KEY` — 필수. 실제 값은 커밋되지 않는 `.env.local`에만 둡니다.
 - `YOUTUBE_REQUEST_TIMEOUT_MS` — 선택, 기본 10초
 - `YOUTUBE_MAX_RETRIES` — 선택, 기본 2회, 최대 5회
+- `YOUTUBE_RATE_LIMIT_MAX_RETRIES` — 선택, 검색 속도 제한 전용 기본 5회, 최대 8회
+- `YOUTUBE_RATE_LIMIT_RETRY_BASE_DELAY_MS` — 선택, 검색 속도 제한 전용 지수 지연 기본 5초
 
 API 키에는 YouTube Data API v3만 허용하고 가능한 경우 서버 IP 제한을 적용합니다. 키, 요청 URL과 쿼리 매개변수는 로그나 오류에 기록하지 않습니다.
 
@@ -20,7 +22,7 @@ API 키에는 YouTube Data API v3만 허용하고 가능한 경우 서버 IP 제
 6. 사용자가 지정한 최근 업로드 허용 기간 안의 영상만 최근 지표에 포함합니다.
 7. 판정과 저장이 끝난 결과만 실행 결과에 포함합니다.
 
-`search.list`는 호출당 할당량 비용이 큰 API이므로 쿼리·페이지 안전 상한과 10분 실행 제한을 유지합니다.
+`search.list`는 별도 일일 검색 할당량 버킷을 사용하므로 쿼리·페이지 안전 상한과 10분 실행 제한을 유지합니다. 한 번의 검색 요청에서 최대 50개 후보를 받아 호출 수를 줄이고, 후보는 순차 평가하여 추천 목표에 도달하는 즉시 나머지 평가를 중단합니다. `discover_candidates`의 HTTP 429 `rateLimitExceeded`는 일일 검색 할당량 소진으로 분류하여 다른 검색어를 연속 호출하지 않고 `provider_failure_limit_reached` 부분 결과로 중단합니다. 다른 작업의 일반 속도 제한은 더 긴 지수 지연과 `Retry-After` 값으로 같은 요청을 제한 재시도합니다.
 
 ## 최근 영상 지표 정의
 
