@@ -19,37 +19,37 @@ export function LiveScoutingRunTable({
   }
 
   return <div className="overflow-x-auto">
-    <table className="w-full min-w-[980px] text-left text-sm">
+    <table className="w-full min-w-[1120px] text-left text-sm">
       <thead className="border-y border-slate-200 bg-slate-50 text-xs font-semibold text-slate-500">
         <tr>
-          <th className="px-4 py-3">실행</th>
-          <th className="px-4 py-3">유형</th>
-          <th className="px-4 py-3">시작 시각(KST)</th>
-          <th className="px-4 py-3">상태</th>
-          <th className="px-4 py-3 text-right">추천 목표</th>
-          <th className="px-4 py-3 text-right">추천 충족</th>
-          <th className="px-4 py-3 text-right">과거 중복</th>
-          <th className="px-4 py-3 text-right">실패</th>
-          <th className="px-4 py-3">종료 사유</th>
+          <th className="whitespace-nowrap px-4 py-3">실행</th>
+          <th className="whitespace-nowrap px-4 py-3">유형</th>
+          <th className="whitespace-nowrap px-4 py-3">시작 시각(KST)</th>
+          <th className="whitespace-nowrap px-4 py-3">상태</th>
+          <th className="whitespace-nowrap px-4 py-3 text-right">추천 목표</th>
+          <th className="whitespace-nowrap px-4 py-3 text-right">추천 충족</th>
+          <th className="whitespace-nowrap px-4 py-3 text-right">과거 중복</th>
+          <th className="whitespace-nowrap px-4 py-3 text-right">실패</th>
+          <th className="whitespace-nowrap px-4 py-3">종료 사유</th>
         </tr>
       </thead>
       <tbody className="divide-y divide-slate-100">
         {executions.map((execution) => {
           const metadata = metadataFor(execution, events);
           return <tr key={execution.id} className="hover:bg-slate-50">
-            <td className="px-4 py-4 font-semibold text-ink">
+            <td className="whitespace-nowrap px-4 py-4 font-semibold text-ink">
               {execution.runId
                 ? <Link href={`/runs/${execution.runId}`} className="hover:text-brand hover:underline">{shortRunId(execution.runId)}</Link>
                 : shortRunId(execution.id)}
             </td>
-            <td className="px-4 py-4 text-slate-600">{triggerLabel(execution.trigger)}</td>
+            <td className="whitespace-nowrap px-4 py-4 text-slate-600">{triggerLabel(execution.trigger)}</td>
             <td className="px-4 py-4 whitespace-nowrap text-slate-500">{formatDateTime(execution.startedAt)}</td>
-            <td className="px-4 py-4"><ExecutionStatus status={execution.status} /></td>
+            <td className="whitespace-nowrap px-4 py-4"><ExecutionStatus status={execution.status} /></td>
             <td className="px-4 py-4 text-right tabular-nums">{numberOrDash(metadata.targetRecommendedCount)}</td>
             <td className="px-4 py-4 text-right tabular-nums">{numberOrDash(metadata.recommendationsFilled)}</td>
             <td className="px-4 py-4 text-right tabular-nums">{formatNumber(execution.priorHistorySkipped)}</td>
             <td className="px-4 py-4 text-right tabular-nums">{formatNumber(execution.failedCandidates)}</td>
-            <td className="px-4 py-4 text-xs text-slate-500">{stopReasonLabel(execution.stopReason)}</td>
+            <td className="whitespace-nowrap px-4 py-4 text-xs text-slate-500">{stopReasonLabel(execution.stopReason)}</td>
           </tr>;
         })}
       </tbody>
