@@ -86,6 +86,13 @@ export interface OperationMonitoringSnapshot {
   lastFailureAt: string | null;
 }
 
+export interface OperationsSnapshot {
+  monitoring: OperationMonitoringSnapshot;
+  schedules: ScheduledScoutingJob[];
+  executions: ScoutingRunExecution[];
+  events: OperationalEvent[];
+}
+
 export interface CoordinatedRunOutcome {
   kind: "completed" | "locked" | "paused" | "failed";
   correlationId: string;

@@ -1,6 +1,6 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 
-const requiredRoutes = ["/", "/runs/new", "/runs/mock-new-run", "/runs/automatic-h4-mock-run", "/history", "/settings", "/operations"] as const;
+const requiredRoutes = ["/", "/runs", "/runs/new", "/runs/mock-new-run", "/runs/automatic-h4-mock-run", "/history", "/settings", "/operations"] as const;
 
 async function resetBrowserStorage(page: Page): Promise<void> {
   await page.goto("/");
@@ -59,7 +59,7 @@ test("새 추천 실행 폼은 추천 목표만으로 자동 실행을 시작한
   await expect(page.getByRole("status")).toContainText("추천 목표를 모두 충족했습니다.");
 });
 
-test("자동 검색 중 10분 기준 남은 시간이 실시간으로 감소한다", async ({ page }) => {
+test("자동 검색 중 1분 기준 남은 시간이 실시간으로 감소한다", async ({ page }) => {
   await page.route("**/api/runs/automatic", async (route) => {
     await new Promise((resolve) => setTimeout(resolve, 1_800));
     await route.fulfill({ json: { runId: "automatic-h4-mock-run" } });
@@ -67,10 +67,34 @@ test("자동 검색 중 10분 기준 남은 시간이 실시간으로 감소한�
   await page.goto("/runs/new");
 
   const countdown = page.getByLabel("자동 검색 제한 시간");
-  await expect(countdown).toContainText("10:00");
+  await expect(countdown).toContainText("01:00");
   await page.getByRole("button", { name: "추천 실행 시작" }).click();
-  await expect(countdown).toContainText("09:59", { timeout: 1_600 });
+  await expect(countdown).toContainText("00:59", { timeout: 1_600 });
   await expect(page).toHaveURL(/\/runs\/automatic-h4-mock-run$/);
+});
+
+test("대시보드와 추천 실행 기록이 실제 서버 실행을 표시한다", async ({ page }) => {
+  await page.goto("/runs/new");
+  await page.getByLabel("추천 목표 수").fill("1");
+  await page.getByRole("button", { name: "추천 실행 시작" }).click();
+  await expect(page).toHaveURL(/\/runs\/automatic-[a-f0-9-]+$/);
+
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "최근 추천 실행" })).toBeVisible();
+  await expect(page.getByRole("link", { name: /automatic-/ }).first()).toBeVisible();
+  await expect(page.getByText("실제 추천 실행과 SQLite 판정 기록", { exact: false })).toBeVisible();
+
+  await page.getByRole("link", { name: "전체 실행 기록 보기" }).click();
+  await expect(page).toHaveURL("/runs");
+  await expect(page.getByRole("heading", { name: "추천 실행 기록" })).toBeVisible();
+  await expect(page.getByRole("cell", { name: "완료" }).first()).toBeVisible();
+});
+
+test("히스토리는 실제 JSON 내보내기 명칭과 KST 판정 시각을 표시한다", async ({ page }) => {
+  await page.goto("/history");
+  await expect(page.getByRole("button", { name: "JSON 내보내기" })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: /판정 시각\(KST\)/ })).toBeVisible();
+  await expect(page.getByText("목 JSON 내보내기")).toHaveCount(0);
 });
 
 test("추천·보류·제외가 렌더링되고 각 크리에이터는 한 그룹에만 존재한다", async ({ page }) => {

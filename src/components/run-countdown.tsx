@@ -31,8 +31,7 @@ export function RunCountdown({ startedAtMs }: { startedAtMs: number | null }): R
       {formatRunCountdown(remainingMs)}
     </p>
     <p className="mt-1 text-xs text-slate-500">
-      {expired ? "검색을 종료하고 현재까지 완료된 결과를 정리하고 있습니다." : "자동 검색은 최대 10분 동안 진행됩니다."}
+      {expired ? "검색을 종료하고 현재까지 완료된 결과를 정리하고 있습니다." : "자동 검색은 최대 1분 동안 진행됩니다."}
     </p>
   </div>;
 }
-

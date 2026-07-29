@@ -4,7 +4,7 @@ import { ensureOperationRuntime } from "@/server/operations/operation-runtime";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 600;
+export const maxDuration = 60;
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const input = await parseRequest(request);

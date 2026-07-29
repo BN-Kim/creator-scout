@@ -1,2 +1,1 @@
-export const automaticScoutingRunLimitMs = 10 * 60 * 1_000;
-
+export const automaticScoutingRunLimitMs = 60 * 1_000;
