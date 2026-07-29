@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { PageHeader } from "@/components/page-header";
+import { RunCountdown } from "@/components/run-countdown";
 import { creatorCategories } from "@/config/labels";
 import { validateNewRun, type ValidationErrors } from "@/lib/validation";
 import type { NewRunInput } from "@/types/domain";
@@ -17,6 +18,7 @@ export default function NewRunPage(): React.ReactNode {
   const [values, setValues] = useState(initialValues);
   const [errors, setErrors] = useState<ValidationErrors>({});
   const [submitting, setSubmitting] = useState(false);
+  const [runStartedAtMs, setRunStartedAtMs] = useState<number | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const setField = <K extends keyof NewRunInput>(key: K, value: NewRunInput[K]): void => setValues((current) => ({ ...current, [key]: value }));
 
@@ -28,6 +30,7 @@ export default function NewRunPage(): React.ReactNode {
     setSubmitError(null);
     if (Object.keys(nextErrors).length > 0) return;
     setSubmitting(true);
+    setRunStartedAtMs(Date.now());
     try {
       const response = await fetch("/api/runs/automatic", {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(values),
@@ -38,6 +41,7 @@ export default function NewRunPage(): React.ReactNode {
     } catch (error: unknown) {
       setSubmitError(error instanceof Error ? error.message : "추천 실행을 시작하지 못했습니다.");
       setSubmitting(false);
+      setRunStartedAtMs(null);
     }
   };
 
@@ -45,6 +49,7 @@ export default function NewRunPage(): React.ReactNode {
     <PageHeader title="새 추천 실행" description="추천 목표만 입력해도 자동으로 다양한 카테고리와 검색 범위를 탐색합니다." />
     <form onSubmit={submit} noValidate className="panel max-w-4xl p-5 sm:p-8">
       {submitError && <p role="alert" className="mb-6 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{submitError}</p>}
+      <div className="mb-6"><RunCountdown startedAtMs={runStartedAtMs} /></div>
       <Field label="추천 목표 수" error={errors.targetRecommendedCount} hint="새 추천 완료 인원" wide>
         <NumberInput value={values.targetRecommendedCount} onChange={(value) => setField("targetRecommendedCount", value)} min={1} max={500} />
       </Field>

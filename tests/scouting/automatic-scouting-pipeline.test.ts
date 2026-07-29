@@ -323,6 +323,28 @@ describe("automatic scouting pipeline", () => {
     expect(result.statistics).toMatchObject({ discovered: 0, evaluated: 0, stopReason: "time_limit_reached" });
   });
 
+  it("forces a partial result at the deadline and preserves only completed decisions", async () => {
+    const repository = createRepository();
+    const assembler = scenarioAssembler(new Map([[CHANNEL_A, 0], [CHANNEL_B, 0]]));
+    const harness = createHarness([CHANNEL_A, CHANNEL_B], repository, {
+      assembler,
+      evidencePendingChannelId: CHANNEL_B,
+    });
+
+    const result = await harness.pipeline.run(request(2, { maxRunDurationMs: 20 }));
+
+    expect(result.statistics).toMatchObject({
+      discovered: 2,
+      evaluated: 1,
+      recommended: 1,
+      recommendationsFilled: 1,
+      failed: 0,
+      stopReason: "time_limit_reached",
+    });
+    expect(result.results.map((creator) => creator.identity.youtubeChannelId)).toEqual([CHANNEL_A]);
+    expect(repository.load().map((record) => record.identity.youtubeChannelId)).toEqual([CHANNEL_A]);
+  });
+
   it("stops at the configured provider failure limit without creating history", async () => {
     const repository = createRepository();
     const harness = createHarness([CHANNEL_A, CHANNEL_B], repository, {
@@ -452,6 +474,7 @@ interface HarnessOptions {
   useDefaultAssembler?: boolean;
   evidenceFailureChannelId?: string;
   evidenceFailureChannelIds?: string[];
+  evidencePendingChannelId?: string;
   discoveryProvider?: YouTubeCandidateDiscoveryProvider;
   recruitmentProvider?: RecruitmentEvidenceProvider;
   now?: () => Date;
@@ -478,6 +501,9 @@ function createHarness(candidateIds: string[], repository: HistoryRepository, op
     getChannelEvidence: async (identity) => {
       calls.channelEvidence += 1;
       events.push(`channel:${identity.channelId}`);
+      if (identity.channelId === options.evidencePendingChannelId) {
+        return await new Promise<never>(() => undefined);
+      }
       if (identity.channelId === options.evidenceFailureChannelId || options.evidenceFailureChannelIds?.includes(identity.channelId)) {
         throw new YouTubeProviderError("fictional temporary failure", {
           category: "temporary", operation: "channel_evidence", retryable: true,

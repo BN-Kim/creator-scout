@@ -107,7 +107,9 @@ export class YouTubeDataApiProvider implements YouTubeCandidateDiscoveryProvider
     if (!Number.isInteger(request.maxResults) || request.maxResults < 1 || request.maxResults > 50) {
       throw providerError("Recent video request is invalid.", "get_recent_videos", "invalid_input");
     }
-    if (!request.uploadsPlaylistId) return emptyRecentVideoResult();
+    if (!request.uploadsPlaylistId) {
+      throw providerError("Uploads playlist evidence is unavailable.", "get_recent_videos", "response_invalid");
+    }
     const rawPlaylist = await this.client.get("get_recent_video_ids", "playlistItems", {
       part: "contentDetails", playlistId: request.uploadsPlaylistId, maxResults: String(request.maxResults),
     });
@@ -136,9 +138,11 @@ export class YouTubeDataApiProvider implements YouTubeCandidateDiscoveryProvider
       const statistics = optionalRecord(video?.statistics);
       const contentDetails = optionalRecord(video?.contentDetails);
       const durationSeconds = parseIsoDurationSeconds(stringValue(contentDetails?.duration));
+      const publishedAt = dateTimeValue(snippet?.publishedAt) ?? publishedById.get(videoId) ?? null;
+      if (!publishedAt) continue;
       normalizedById.set(videoId, {
         videoId,
-        publishedAt: dateTimeValue(snippet?.publishedAt) ?? publishedById.get(videoId) ?? null,
+        publishedAt,
         viewCount: countValue(statistics?.viewCount),
         durationSeconds,
         durationClass: durationSeconds === null ? "unknown" : durationSeconds <= 180 ? "shorts_length" : "long_form_length",
@@ -151,10 +155,6 @@ export class YouTubeDataApiProvider implements YouTubeCandidateDiscoveryProvider
     const unavailable = videoIds.filter((videoId) => !normalizedById.has(videoId));
     return createRecentVideoResult(videos, unavailable, { playlist: rawPlaylist, videos: rawVideos });
   }
-}
-
-function emptyRecentVideoResult(): RecentVideoEvidenceResult {
-  return createRecentVideoResult([], [], { playlist: null, videos: null });
 }
 
 function createRecentVideoResult(videos: NormalizedVideoEvidence[], unavailableVideoIds: string[], raw: unknown): RecentVideoEvidenceResult {

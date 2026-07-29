@@ -68,12 +68,89 @@ describe("YouTube evidence provider", () => {
   });
 
   it("keeps unavailable duration and views missing instead of inventing evidence", async () => {
-    const playlist = { items: [{ contentDetails: { videoId: "fictional-missing-fields" } }] };
-    const videos = { items: [{ id: "fictional-missing-fields", snippet: {} }] };
+    const playlist = { items: [{ contentDetails: { videoId: "fictional-missing-fields", videoPublishedAt: "2026-07-20T00:00:00Z" } }] };
+    const videos = { items: [{ id: "fictional-missing-fields", snippet: { publishedAt: "2026-07-20T00:00:00Z" } }] };
     const provider = new YouTubeDataApiProvider(providerConfig(), { fetch: new FetchQueue(jsonResponse(playlist), jsonResponse(videos)).fetch });
     const result = await provider.getRecentVideoEvidence(identity, { uploadsPlaylistId: "UUfictionaluploads", maxResults: 5 });
-    expect(result.normalized.videos[0]).toMatchObject({ publishedAt: null, viewCount: null, durationSeconds: null, durationClass: "unknown" });
+    expect(result.normalized.videos[0]).toMatchObject({ publishedAt: "2026-07-20T00:00:00Z", viewCount: null, durationSeconds: null, durationClass: "unknown" });
     expect(result.normalized.unknownDurationSamples).toHaveLength(1);
+  });
+
+  it("treats a video with no usable publication date as unavailable instead of an old or zero-count video", async () => {
+    const playlist = { items: [{ contentDetails: { videoId: "fictional-missing-date" } }] };
+    const videos = { items: [{ id: "fictional-missing-date", snippet: {}, statistics: { viewCount: "1200" } }] };
+    const provider = new YouTubeDataApiProvider(providerConfig(), { fetch: new FetchQueue(jsonResponse(playlist), jsonResponse(videos)).fetch });
+    const result = await provider.getRecentVideoEvidence(identity, { uploadsPlaylistId: "UUfictionaluploads", maxResults: 5 });
+    expect(result.normalized.videos).toEqual([]);
+    expect(result.normalized.unavailableVideoIds).toEqual(["fictional-missing-date"]);
+  });
+
+  it("calculates count and average from only the configured recent upload window", () => {
+    const channel = {
+      evidenceSource: "youtube_data_api_v3" as const,
+      channelId: MOCK_CHANNEL_ID, channelName: "허구 목 채널", handle: "@fictionalmock",
+      canonicalChannelUrl: identity.canonicalChannelUrl, subscriberCount: 1000, subscriberCountHidden: false,
+      publicVideoCount: 20, channelPublishedAt: null, country: "KR", uploadsPlaylistId: "UUfictionaluploads",
+    };
+    const videos = [
+      ...Array.from({ length: 12 }, (_, index) => ({
+        videoId: `fictional-recent-${index}`,
+        publishedAt: `2026-07-${String(21 - index).padStart(2, "0")}T00:00:00Z`,
+        viewCount: (index + 1) * 1000,
+        durationSeconds: 600,
+        durationClass: "long_form_length" as const,
+      })),
+      {
+        videoId: "fictional-old",
+        publishedAt: "2026-04-01T00:00:00Z",
+        viewCount: 999999,
+        durationSeconds: 600,
+        durationClass: "long_form_length" as const,
+      },
+    ];
+    const evidence = createVerificationEvidence(channel, {
+      videos,
+      shortsLengthSamples: [],
+      longFormLengthSamples: videos,
+      unknownDurationSamples: [],
+      unavailableVideoIds: [],
+    }, new Date("2026-07-22T00:00:00Z"), {
+      maximumDaysSinceLatestUpload: 42,
+      averageViewSampleSize: 10,
+    });
+
+    expect(evidence.recentVideoCount).toBe(12);
+    expect(evidence.recentViewCounts).toEqual([1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000]);
+    expect(evidence.recentAverageViews).toBe(5500);
+    expect(evidence.recentVideoUrls).not.toContain("https://www.youtube.com/watch?v=fictional-old");
+  });
+
+  it("keeps recent count and average unknown when the official response is incomplete", () => {
+    const channel = {
+      evidenceSource: "youtube_data_api_v3" as const,
+      channelId: MOCK_CHANNEL_ID, channelName: "허구 목 채널", handle: null,
+      canonicalChannelUrl: identity.canonicalChannelUrl, subscriberCount: null, subscriberCountHidden: true,
+      publicVideoCount: 2, channelPublishedAt: null, country: null, uploadsPlaylistId: "UUfictionaluploads",
+    };
+    const video = {
+      videoId: "fictional-known",
+      publishedAt: "2026-07-20T00:00:00Z",
+      viewCount: 1200,
+      durationSeconds: 600,
+      durationClass: "long_form_length" as const,
+    };
+    const evidence = createVerificationEvidence(channel, {
+      videos: [video],
+      shortsLengthSamples: [],
+      longFormLengthSamples: [video],
+      unknownDurationSamples: [],
+      unavailableVideoIds: ["fictional-unavailable"],
+    }, new Date("2026-07-22T00:00:00Z"), {
+      maximumDaysSinceLatestUpload: 42,
+      averageViewSampleSize: 10,
+    });
+    expect(evidence.recentVideoCount).toBeNull();
+    expect(evidence.recentAverageViews).toBeNull();
   });
 
   it("maps only available normalized data into the existing evidence domain", () => {

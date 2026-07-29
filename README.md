@@ -1,6 +1,6 @@
 # 크리에이터 스카우트
 
-새로운 YouTube 채널을 자동 발견하고 안정적인 신원으로 정규화한 뒤, SQLite 히스토리에서 과거 처리 여부를 먼저 확인하고 진정으로 새로운 채널만 검증·판정·자동 저장하는 Next.js 운영 애플리케이션입니다. H0~H7, YouTube.js 공급자 통합, H4.2 추천 목표 충족 보정, 공급자 정확성 hotfix와 H4.3 자율 후보 발견이 완료되었습니다.
+새로운 YouTube 채널을 자동 발견하고 안정적인 신원으로 정규화한 뒤, SQLite 히스토리에서 과거 처리 여부를 먼저 확인하고 진정으로 새로운 채널만 검증·판정·자동 저장하는 Next.js 운영 애플리케이션입니다. YouTube 수집은 공식 YouTube Data API v3만 사용합니다.
 
 ## 시작하기
 
@@ -11,20 +11,13 @@ npm run dev
 
 `http://localhost:3000`에서 실행됩니다.
 
-기본 YouTube 공급자는 API 키가 필요 없는 서버 전용 InnerTube 어댑터입니다. `.env.local`에서 다음 중 하나를 선택할 수 있습니다.
+라이브 자동 검색에는 공식 YouTube Data API v3 키가 필수입니다. 키는 커밋되지 않는 `.env.local`에만 입력합니다.
 
 ```bash
-YOUTUBE_PROVIDER=innertube
-```
-
-공식 YouTube Data API v3 어댑터를 선택할 때만 키가 필요합니다.
-
-```bash
-YOUTUBE_PROVIDER=official
 YOUTUBE_API_KEY=your_key
 ```
 
-H5.1의 서버 전용 리크루팅 수집기는 정확한 YouTube 채널에 공개된 설명·최근 영상 설명과 그 채널이 직접 연결한 공식 사이트만 확인합니다. `robots.txt`와 요청·페이지·리디렉션·응답 크기·호스트별 속도 제한을 지키며, 게이트된 이메일 버튼이나 로그인·CAPTCHA 우회는 사용하지 않습니다. 선택 설정은 [`.env.example`](.env.example)에 정리되어 있습니다.
+공식 API에서 최신 업로드 최대 50개를 확인하고, 설정한 최근 업로드 허용 기간 안의 영상 수와 최신 10개까지의 평균 조회수를 판정합니다. H5.1 리크루팅 수집기는 공식 API에 공개된 채널·최근 영상 설명과 채널 설명에 직접 공개된 공식 사이트만 확인합니다. `robots.txt`와 요청 제한을 지키며, 게이트된 이메일 버튼이나 로그인·CAPTCHA 우회는 사용하지 않습니다.
 
 새 작업을 시작할 때는 [`AGENTS.md`](AGENTS.md)와 [`docs/index.md`](docs/index.md)를 먼저 읽으세요. 현재 구현 범위는 [`docs/current-status.md`](docs/current-status.md), 이후 단계는 [`docs/development-plan.md`](docs/development-plan.md)에 있습니다.
 
@@ -71,8 +64,8 @@ npm run test:e2e
 npm run test:providers
 ```
 
-YouTube.js 구형 파서로 영상 0개가 잘못 기록됐을 가능성이 있는 제외 레코드는 기본 dry-run 복구 명령으로 점검합니다. 실행 ID와 적용할 채널을 반드시 명시해야 하며 자세한 절차는 [`docs/youtubejs-zero-video-repair.md`](docs/youtubejs-zero-video-repair.md)에 있습니다.
+과거 YouTube.js 구형 파서로 영상 0개가 잘못 기록됐을 가능성이 있는 제외 레코드는 역사적 유지보수용 dry-run 복구 명령으로 점검할 수 있습니다. 자세한 절차는 [`docs/youtubejs-zero-video-repair.md`](docs/youtubejs-zero-video-repair.md)에 있습니다.
 
 ## 현재 제한사항
 
-InnerTube와 공개 HTML은 제공자 구조 변경이나 접근 제한으로 수집이 중단될 수 있으며, 현재 실행 결과 묶음은 서버 재시작 후 복구되지 않습니다. H5.1은 공개적으로 보이는 연락·소속 및 한국어 활동 신호만 다루며, 시청자 지역은 승인된 일차 출처가 없어 계속 미확인입니다. 인증, 운영용 외부 데이터베이스, 다중 서버 배포, 실제 배포 자동화와 AI 분석은 구현되어 있지 않습니다. H7은 운영 요구만 승인했으며 H6 예약기는 장기 실행되는 단일 서버와 로컬 SQLite 파일을 전제로 합니다.
+공식 YouTube API의 일일 할당량이 소진되면 자동 검색이 중단될 수 있으며, `search.list`는 호출 비용이 높습니다. 현재 실행 결과 묶음은 서버 재시작 후 복구되지 않습니다. H5.1은 공개적으로 보이는 연락·소속 및 한국어 활동 신호만 다루며, 시청자 지역은 승인된 일차 출처가 없어 계속 미확인입니다. 인증, 운영용 외부 데이터베이스, 다중 서버 배포, 실제 배포 자동화와 AI 분석은 구현되어 있지 않습니다.

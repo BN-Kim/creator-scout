@@ -11,6 +11,7 @@ import type { YouTubeCandidateDiscoveryProvider, YouTubeEvidenceProvider, YouTub
 import { YouTubeProviderError } from "@/server/providers/youtube/provider-error";
 import type { DiscoveredYouTubeCandidate, IdentityResolutionResult } from "@/server/providers/youtube/provider-types";
 import { createVerificationEvidence } from "@/server/providers/youtube/verification-evidence";
+import { youtubeEvidenceCollectionPolicy } from "@/config/youtube-evidence";
 import { evaluateCreator } from "@/server/rules/evaluate-creator";
 import { defaultAutomaticScoutingSafetyLimits, exhaustedDiscoveryQueryCooldownMs } from "@/server/scouting/automatic-scouting-config";
 import { createCreatorInputFromYouTubeEvidence, type CreatorInputAssembler } from "@/server/scouting/creator-input-assembler";
@@ -43,6 +44,7 @@ export class AutomaticScoutingPipeline {
   async run(request: AutomaticScoutingRunRequest): Promise<AutomaticScoutingRunResult> {
     const limits = validateRequest(request);
     const startedAtDate = this.now();
+    const deadlineAtMs = startedAtDate.getTime() + limits.maxRunDurationMs;
     const mode = resolveMode(request);
     const manualQueries = resolveManualQueries(request);
     const stateRepository = this.dependencies.discoveryStateRepository ?? new InMemoryDiscoveryStateRepository();
@@ -76,13 +78,21 @@ export class AutomaticScoutingPipeline {
 
       let page;
       try {
-        page = await this.dependencies.discoveryProvider.discoverCandidates({
-          query: queryState.query,
-          maxResults: batchSize,
-          ...(queryState.continuationToken ? { pageToken: queryState.continuationToken } : {}),
-        });
+        page = await withinRunDeadline(
+          () => this.dependencies.discoveryProvider.discoverCandidates({
+            query: queryState.query,
+            maxResults: batchSize,
+            ...(queryState.continuationToken ? { pageToken: queryState.continuationToken } : {}),
+          }),
+          deadlineAtMs,
+          this.now,
+        );
         statistics.pagesScanned += 1;
       } catch (error: unknown) {
+        if (error instanceof AutomaticScoutingDeadlineReachedError) {
+          stopReason = "time_limit_reached";
+          break;
+        }
         failures.push(toFailure(error, "discovery", null));
         statistics.failed += 1;
         providerFailures += 1;
@@ -93,6 +103,7 @@ export class AutomaticScoutingPipeline {
 
       const candidates = page.candidates.slice(0, batchSize);
       let processedCandidates = 0;
+      let pageInterrupted = false;
       let pageStopReason: AutomaticScoutingStopReason | null = null;
       for (const candidate of candidates) {
         const beforeCandidate = safetyStopReason(statistics, limits, providerFailures, this.now().getTime() - startedAtDate.getTime(), true);
@@ -101,7 +112,21 @@ export class AutomaticScoutingPipeline {
         statistics.discovered += 1;
         delta.candidatesScanned = (delta.candidatesScanned ?? 0) + 1;
 
-        const identityResult = await this.resolveCandidate(candidate, failures);
+        let identityResult: IdentityResolutionResult | null;
+        try {
+          identityResult = await withinRunDeadline(
+            () => this.resolveCandidate(candidate, failures),
+            deadlineAtMs,
+            this.now,
+          );
+        } catch (error: unknown) {
+          if (error instanceof AutomaticScoutingDeadlineReachedError) {
+            pageInterrupted = true;
+            pageStopReason = "time_limit_reached";
+            break;
+          }
+          throw error;
+        }
         if (!identityResult) {
           statistics.failed += 1; providerFailures += 1; delta.failed = (delta.failed ?? 0) + 1;
           if (providerFailures >= limits.maxProviderFailures) { pageStopReason = "provider_failure_limit_reached"; break; }
@@ -133,17 +158,38 @@ export class AutomaticScoutingPipeline {
 
         let collectedEvidence;
         try {
-          const channelResult = await this.dependencies.evidenceProvider.getChannelEvidence(identityResult.identity);
-          const videoResult = await this.dependencies.evidenceProvider.getRecentVideoEvidence(identityResult.identity, {
-            uploadsPlaylistId: channelResult.normalized.uploadsPlaylistId,
-            maxResults: request.recentVideoLimit ?? 10,
-          });
+          const channelResult = await withinRunDeadline(
+            () => this.dependencies.evidenceProvider.getChannelEvidence(identityResult.identity),
+            deadlineAtMs,
+            this.now,
+          );
+          const videoResult = await withinRunDeadline(
+            () => this.dependencies.evidenceProvider.getRecentVideoEvidence(identityResult.identity, {
+              uploadsPlaylistId: channelResult.normalized.uploadsPlaylistId,
+              maxResults: request.recentVideoLimit ?? youtubeEvidenceCollectionPolicy.maximumRecentUploads,
+            }),
+            deadlineAtMs,
+            this.now,
+          );
           collectedEvidence = {
             channel: channelResult.normalized,
             recentVideos: videoResult.normalized,
-            verificationEvidence: createVerificationEvidence(channelResult.normalized, videoResult.normalized, this.now()),
+            verificationEvidence: createVerificationEvidence(
+              channelResult.normalized,
+              videoResult.normalized,
+              this.now(),
+              {
+                maximumDaysSinceLatestUpload: request.settings.maximumDaysSinceLatestUpload,
+                averageViewSampleSize: request.settings.extendedRecentAverageWindow,
+              },
+            ),
           };
         } catch (error: unknown) {
+          if (error instanceof AutomaticScoutingDeadlineReachedError) {
+            pageInterrupted = true;
+            pageStopReason = "time_limit_reached";
+            break;
+          }
           failures.push(toFailure(error, "evidence_collection", channelId));
           statistics.failed += 1; providerFailures += 1; delta.failed = (delta.failed ?? 0) + 1;
           if (providerFailures >= limits.maxProviderFailures) { pageStopReason = "provider_failure_limit_reached"; break; }
@@ -153,12 +199,21 @@ export class AutomaticScoutingPipeline {
         let recruitmentEvidence: RecruitmentEvidence | undefined;
         try {
           recruitmentEvidence = this.dependencies.recruitmentEvidenceProvider
-            ? (await this.dependencies.recruitmentEvidenceProvider.collectEvidence({
-                channelId, channelName: identityResult.identity.channelName,
-                canonicalChannelUrl: identityResult.identity.canonicalChannelUrl,
-              })).normalized
+            ? (await withinRunDeadline(
+                () => this.dependencies.recruitmentEvidenceProvider!.collectEvidence({
+                  channelId, channelName: identityResult.identity.channelName,
+                  canonicalChannelUrl: identityResult.identity.canonicalChannelUrl,
+                }),
+                deadlineAtMs,
+                this.now,
+              )).normalized
             : undefined;
         } catch (error: unknown) {
+          if (error instanceof AutomaticScoutingDeadlineReachedError) {
+            pageInterrupted = true;
+            pageStopReason = "time_limit_reached";
+            break;
+          }
           failures.push(toFailure(error, "recruitment_evidence", channelId));
           statistics.failed += 1; providerFailures += 1; delta.failed = (delta.failed ?? 0) + 1;
           if (providerFailures >= limits.maxProviderFailures) { pageStopReason = "provider_failure_limit_reached"; break; }
@@ -207,7 +262,7 @@ export class AutomaticScoutingPipeline {
         }
       }
 
-      const pageFullyProcessed = processedCandidates === candidates.length;
+      const pageFullyProcessed = !pageInterrupted && processedCandidates === candidates.length;
       const persistedContinuation = pageFullyProcessed ? page.nextPageToken : queryState.continuationToken;
       const exhausted = pageFullyProcessed && (!page.nextPageToken || page.nextPageToken === queryState.continuationToken);
       stateRepository.recordPage(queryState.normalizedKey, persistedContinuation, exhausted, delta, this.now().toISOString());
@@ -235,7 +290,39 @@ export class AutomaticScoutingPipeline {
 
   private async resolveCandidate(candidate: DiscoveredYouTubeCandidate, failures: AutomaticScoutingFailure[]): Promise<IdentityResolutionResult | null> {
     try { return await this.dependencies.identityProvider.resolveIdentity(candidate.identityInput); }
-    catch (error: unknown) { failures.push(toFailure(error, "identity_resolution", candidate.channelId)); return null; }
+    catch (error: unknown) {
+      if (error instanceof AutomaticScoutingDeadlineReachedError) throw error;
+      failures.push(toFailure(error, "identity_resolution", candidate.channelId));
+      return null;
+    }
+  }
+}
+
+class AutomaticScoutingDeadlineReachedError extends Error {
+  constructor() {
+    super("Automatic scouting run deadline reached.");
+    this.name = "AutomaticScoutingDeadlineReachedError";
+  }
+}
+
+async function withinRunDeadline<T>(
+  operation: () => Promise<T>,
+  deadlineAtMs: number,
+  now: () => Date,
+): Promise<T> {
+  const remainingMs = deadlineAtMs - now().getTime();
+  if (remainingMs <= 0) throw new AutomaticScoutingDeadlineReachedError();
+
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      operation(),
+      new Promise<never>((_resolve, reject) => {
+        timeout = setTimeout(() => reject(new AutomaticScoutingDeadlineReachedError()), remainingMs);
+      }),
+    ]);
+  } finally {
+    if (timeout !== undefined) clearTimeout(timeout);
   }
 }
 
@@ -250,10 +337,10 @@ function resolveManualQueries(request: AutomaticScoutingRunRequest): string[] {
 
 function safetyStopReason(statistics: AutomaticScoutingStatistics, limits: AutomaticScoutingSafetyLimits, providerFailures: number, elapsedMs: number, ignorePageLimit = false): AutomaticScoutingStopReason | null {
   if (statistics.recommended >= statistics.targetRecommendedCount) return "target_reached";
+  if (elapsedMs >= limits.maxRunDurationMs) return "time_limit_reached";
   if (providerFailures >= limits.maxProviderFailures) return "provider_failure_limit_reached";
   if (statistics.discovered >= limits.maxScannedCandidates) return "candidate_limit_reached";
   if (!ignorePageLimit && statistics.pagesScanned >= limits.maxDiscoveryPages) return "page_limit_reached";
-  if (elapsedMs >= limits.maxRunDurationMs) return "time_limit_reached";
   return null;
 }
 

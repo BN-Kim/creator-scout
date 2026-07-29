@@ -31,13 +31,13 @@ H3 공급자 계층은 실제 네트워크와 키 없이 별도로 실행할 수
 npm run test:providers
 ```
 
-테스트는 허구 신원과 목 YouTube 응답만 사용하며 공식·InnerTube 공급자 선택, 키 조건, 신원 정규화, 근거 변환, SQLite 사전 확인, 누락 데이터, 길이 표본, 페이지네이션, 타임아웃·재시도·오류 분류와 비밀정보 비노출을 검증합니다. 실제 API 키나 실시간 YouTube 접근은 사용하지 않습니다.
+테스트는 허구 신원과 목 YouTube Data API 응답만 사용하며 공식 공급자 키 조건, 신원 정규화, 최근 날짜 구간, 영상 수와 조회수 평균, SQLite 사전 확인, 누락 데이터, 길이 표본, 페이지네이션, 타임아웃·재시도·오류 분류와 비밀정보 비노출을 검증합니다. 실제 API 키나 실시간 YouTube 접근은 사용하지 않습니다.
 
 H4/H4.2/H4.3 자동 파이프라인은 `tests/scouting/automatic-scouting-pipeline.test.ts`의 21개 테스트에서 목 공급자만 사용해 비용 순서, 중복 건너뛰기, 세 판정 자동 저장, 추천 목표 충족, 다중 페이지·다중 검색어 발견, 목표 초과 방지, 소스 소진, 후보·페이지·시간·공급자 실패 안전 상한, 반복 실행 멱등성과 후보별 공급자·정규화·저장 실패 격리를 검증합니다. Playwright는 추천 목표만 입력하는 기본 자동 실행, 목표 대비 충족 수, 발견 모드와 중단 사유를 실제 키 없이 확인합니다.
 
 H4.3 자율 발견은 `tests/discovery/h43-discovery.test.ts`의 11개 테스트에서 검색어 없는 자동 실행, 수동 교체·확장과 기존 정규화 키 재사용, 결정론적 한국어 검색어, 좁은 범위 우선·카테고리 회전, 검증·저표본·새 검색어 탐색 회전, SQLite 연속 페이지와 집계 영속화, 최소 표본 품질 점수, 추천 공개 메타데이터 전용 학습 문구, 성과 기반 검증·냉각 상태와 소진 쿼리의 냉각 후 재활성화를 확인합니다. 모든 발견 테스트는 허구 공급자만 사용하며 실제 YouTube나 외부 AI를 호출하지 않습니다.
 
-공급자 정확성 hotfix는 `tests/providers/youtubejs-video-normalization.test.ts`, `tests/providers/innertube-provider.test.ts`, `tests/evaluate-creator.test.ts`, `tests/youtubejs-history-repair.test.ts`에서 LockupView 식별자와 유형, 영상 목록 상태, 비호환 무판정·무저장, 신원·국내 활동·시청자·소속·연락처 게이트, 분리된 사유 표시와 복구 명령을 검증합니다.
+공식 공급자 정확성은 `tests/providers/youtube-evidence-provider.test.ts`, `tests/providers/youtube-data-api-recruitment-client.test.ts`, `tests/evaluate-creator.test.ts`에서 날짜 구간 지표, 불완전 응답 미확인 처리, 신원·국내 활동·시청자·소속·연락처 게이트와 분리된 사유 표시를 검증합니다. `tests/youtubejs-history-repair.test.ts`는 과거 InnerTube 실행 기록의 역사적 복구 도구만 검증합니다.
 
 H5 리크루팅 근거는 `tests/providers/recruitment-evidence-provider.test.ts`에서 승인 출처 허용 목록, 개인·조직 연락처, 소속 유형, 국내 시청자·활동 적합성, 누락·미확인·상충 값, 출처별 확인 시각과 원본 분리를 검증합니다. 자동 파이프라인 테스트는 히스토리 선검사 뒤 신규 신원에만 H5 공급자를 호출하고 반복 실행이 추가 호출이나 히스토리 중복을 만들지 않으며 후보별 실패를 격리하는지 검증합니다. 모든 픽스처는 허구이며 실제 연락처나 실시간 외부 접근을 사용하지 않습니다.
 

@@ -59,6 +59,20 @@ test("새 추천 실행 폼은 추천 목표만으로 자동 실행을 시작한
   await expect(page.getByRole("status")).toContainText("추천 목표를 모두 충족했습니다.");
 });
 
+test("자동 검색 중 10분 기준 남은 시간이 실시간으로 감소한다", async ({ page }) => {
+  await page.route("**/api/runs/automatic", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 1_800));
+    await route.fulfill({ json: { runId: "automatic-h4-mock-run" } });
+  });
+  await page.goto("/runs/new");
+
+  const countdown = page.getByLabel("자동 검색 제한 시간");
+  await expect(countdown).toContainText("10:00");
+  await page.getByRole("button", { name: "추천 실행 시작" }).click();
+  await expect(countdown).toContainText("09:59", { timeout: 1_600 });
+  await expect(page).toHaveURL(/\/runs\/automatic-h4-mock-run$/);
+});
+
 test("추천·보류·제외가 렌더링되고 각 크리에이터는 한 그룹에만 존재한다", async ({ page }) => {
   await openMockRun(page);
   const sections = page.locator("main section.panel");

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createYouTubeDataApiProvider } from "@/server/providers/youtube/create-provider";
+import { createConfiguredYouTubeProvider, createYouTubeDataApiProvider } from "@/server/providers/youtube/create-provider";
 import { YouTubeApiClient } from "@/server/providers/youtube/youtube-api-client";
 import { YouTubeDataApiProvider } from "@/server/providers/youtube/youtube-data-api-provider";
 import { YouTubeProviderError } from "@/server/providers/youtube/provider-error";
@@ -11,6 +11,17 @@ describe("YouTube provider reliability", () => {
     expect(() => createYouTubeDataApiProvider({ NODE_ENV: "test" })).toThrowError(expect.objectContaining({
       category: "configuration", operation: "configuration", retryable: false,
     }));
+  });
+
+  it("always selects the official Data API provider and requires its key", () => {
+    expect(() => createConfiguredYouTubeProvider({ NODE_ENV: "test" })).toThrowError(
+      expect.objectContaining({ category: "configuration" }),
+    );
+    const provider = createConfiguredYouTubeProvider({
+      NODE_ENV: "test",
+      YOUTUBE_API_KEY: TEST_API_KEY,
+    });
+    expect(provider).toBeInstanceOf(YouTubeDataApiProvider);
   });
 
   it("times out with a structured retryable error", async () => {

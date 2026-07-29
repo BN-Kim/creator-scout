@@ -1,16 +1,17 @@
+import { automaticScoutingRunLimitMs } from "@/config/automatic-scouting";
 import type { AutomaticScoutingSafetyLimits } from "@/server/scouting/automatic-scouting-types";
 
 export const defaultAutomaticScoutingSafetyLimits: AutomaticScoutingSafetyLimits = {
   maxScannedCandidates: 2_000,
   maxDiscoveryPages: 100,
-  maxRunDurationMs: 15 * 60 * 1_000,
+  maxRunDurationMs: automaticScoutingRunLimitMs,
   maxProviderFailures: 100,
 };
 
 export const exhaustedDiscoveryQueryCooldownMs = 7 * 24 * 60 * 60 * 1_000;
 
 export function loadAutomaticScoutingSafetyLimits(
-  environment: NodeJS.ProcessEnv = process.env,
+  environment: Readonly<Record<string, string | undefined>> = process.env,
 ): AutomaticScoutingSafetyLimits {
   return {
     maxScannedCandidates: integerSetting(
@@ -29,7 +30,7 @@ export function loadAutomaticScoutingSafetyLimits(
       environment.SCOUTING_MAX_RUN_DURATION_MS,
       defaultAutomaticScoutingSafetyLimits.maxRunDurationMs,
       1,
-      24 * 60 * 60 * 1_000,
+      automaticScoutingRunLimitMs,
     ),
     maxProviderFailures: integerSetting(
       environment.SCOUTING_MAX_PROVIDER_FAILURES,

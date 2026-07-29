@@ -21,8 +21,10 @@ import type {
 } from "@/server/providers/recruitment/provider-types";
 import { PublicOfficialSiteClient } from "@/server/providers/recruitment/public-web-client";
 import { classifyVisibleRecruitmentEvidence } from "@/server/providers/recruitment/visible-email-classifier";
-import { InnerTubeBridgeError } from "@/server/providers/youtube/innertube-client";
 import { extractSafeDiscoveryPhrases } from "@/server/discovery/learned-phrase-extractor";
+import { loadYouTubeProviderConfig } from "@/server/providers/youtube/provider-config";
+import { YouTubeProviderError } from "@/server/providers/youtube/provider-error";
+import { YouTubeDataApiRecruitmentClient } from "@/server/providers/recruitment/youtube-data-api-recruitment-client";
 
 export type LiveRecruitmentProviderErrorCategory = "invalid_input" | "provider_incompatible";
 
@@ -132,8 +134,7 @@ export class LiveRecruitmentEvidenceProvider implements RecruitmentEvidenceProvi
 }
 
 async function createRuntimeYouTubeClient(): Promise<YouTubeRecruitmentSourceClient> {
-  const runtime = await import("@/server/providers/youtube/youtubejs-runtime");
-  return runtime.createYouTubeJsRecruitmentSourceClient();
+  return new YouTubeDataApiRecruitmentClient(loadYouTubeProviderConfig());
 }
 
 function unavailableSiteObservations(site: OfficialSiteCollection, checkedAt: string): RawPublicContactEvidence[] {
@@ -184,12 +185,13 @@ function validateRequest(request: RecruitmentEvidenceRequest): void {
 }
 
 function isExpectedUnavailable(error: unknown): boolean {
-  return error instanceof InnerTubeBridgeError || (error instanceof DOMException && error.name === "TimeoutError");
+  return error instanceof YouTubeProviderError || (error instanceof DOMException && error.name === "TimeoutError");
 }
 
 function unavailableReason(error: unknown): PublicPageStopReason {
   if (error instanceof DOMException && error.name === "TimeoutError") return "timeout";
-  if (error instanceof InnerTubeBridgeError && error.category === "access_restricted") return "access_restricted";
+  if (error instanceof YouTubeProviderError && ["access_restricted", "unauthorized"].includes(error.category)) return "access_restricted";
+  if (error instanceof YouTubeProviderError && ["quota_exceeded", "rate_limited"].includes(error.category)) return "rate_limited";
   return "temporary_failure";
 }
 

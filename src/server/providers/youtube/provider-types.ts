@@ -40,7 +40,7 @@ export interface IdentityResolutionResult<TRaw = unknown> {
 }
 
 export interface NormalizedChannelEvidence {
-  evidenceSource: "youtube_data_api_v3" | "youtubejs_innertube" | "fictional_mock";
+  evidenceSource: "youtube_data_api_v3" | "fictional_mock";
   channelId: string;
   channelName: string;
   handle: string | null;
@@ -84,6 +84,11 @@ export interface RecentVideoEvidenceResult<TRaw = unknown> {
 export interface RecentVideoRequest {
   uploadsPlaylistId: string | null;
   maxResults: number;
+}
+
+export interface RecentVideoWindow {
+  maximumDaysSinceLatestUpload: number;
+  averageViewSampleSize: number;
 }
 
 export interface CollectedYouTubeEvidence {
