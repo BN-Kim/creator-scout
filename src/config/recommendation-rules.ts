@@ -27,7 +27,7 @@ export const defaultRecommendationSettings: RecommendationSettings = recommendat
   minimumRecentAverageViews: 10000,
   defaultRecentAverageWindow: 5,
   extendedRecentAverageWindow: 10,
-  allowedCategories: ["뷰티", "푸드", "테크", "라이프스타일", "여행"],
+  allowedCategories: ["뷰티", "패션", "푸드", "테크", "라이프스타일", "여행"],
   blockedChannelTypes: ["official", "company", "corporate", "brand", "agency", "management", "mcn", "label", "reupload", "compilation"],
   excludedEmailClassifications: ["company", "agency", "management", "mcn", "label"],
 });

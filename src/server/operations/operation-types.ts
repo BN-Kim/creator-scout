@@ -13,6 +13,7 @@ export interface AutomaticRunConfiguration {
   maximumDaysSinceLatestUpload: number;
   minimumRecentAverageViews: number;
   minimumRecentVideoCount: number;
+  allowedCategories?: string[];
 }
 
 export interface ScheduledScoutingJob {

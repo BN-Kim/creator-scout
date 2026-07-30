@@ -18,6 +18,7 @@ export const automaticRunConfigurationSchema = z.object({
     .default(defaultRecommendationSettings.maximumDaysSinceLatestUpload),
   minimumRecentAverageViews: z.number().nonnegative().default(defaultRecommendationSettings.minimumRecentAverageViews),
   minimumRecentVideoCount: z.number().int().min(2).default(defaultRecommendationSettings.minimumRecentVideoCount),
+  allowedCategories: z.array(z.string()).min(1).default(defaultRecommendationSettings.allowedCategories),
 }).superRefine((input, context) => {
   if (input.discoveryMode !== "automatic" && !input.keywords) {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ["keywords"], message: "추가 검색어 모드에는 검색어가 필요합니다." });
@@ -27,6 +28,9 @@ export const automaticRunConfigurationSchema = z.object({
   }
   if (input.category && !isApprovedCategory(input.category)) {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ["category"], message: "승인되지 않은 카테고리입니다." });
+  }
+  if (input.allowedCategories.some((category) => !isApprovedCategory(category))) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["allowedCategories"], message: "허용되지 않은 카테고리가 포함되어 있습니다." });
   }
 });
 

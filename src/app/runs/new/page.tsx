@@ -1,18 +1,22 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/page-header";
 import { RunCountdown } from "@/components/run-countdown";
 import { creatorCategories } from "@/config/labels";
-import { maximumDaysSinceLatestUploadRange } from "@/config/recommendation-rules";
+import { defaultRecommendationSettings, maximumDaysSinceLatestUploadRange } from "@/config/recommendation-rules";
 import { notifyOperationsChanged } from "@/lib/operations-refresh";
+import { loadRecommendationSettings } from "@/lib/recommendation-settings-storage";
 import { validateNewRun, type ValidationErrors } from "@/lib/validation";
 import type { NewRunInput } from "@/types/domain";
 
 const initialValues: NewRunInput = {
   name: "", discoveryMode: "automatic", category: "", keywords: "", targetRecommendedCount: 50,
-  maximumDaysSinceLatestUpload: 56, minimumRecentAverageViews: 10000, minimumRecentVideoCount: 2,
+  maximumDaysSinceLatestUpload: defaultRecommendationSettings.maximumDaysSinceLatestUpload,
+  minimumRecentAverageViews: defaultRecommendationSettings.minimumRecentAverageViews,
+  minimumRecentVideoCount: defaultRecommendationSettings.minimumRecentVideoCount,
+  allowedCategories: defaultRecommendationSettings.allowedCategories,
 };
 
 export default function NewRunPage(): React.ReactNode {
@@ -22,7 +26,25 @@ export default function NewRunPage(): React.ReactNode {
   const [submitting, setSubmitting] = useState(false);
   const [runStartedAtMs, setRunStartedAtMs] = useState<number | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [settingsError, setSettingsError] = useState<string | null>(null);
   const setField = <K extends keyof NewRunInput>(key: K, value: NewRunInput[K]): void => setValues((current) => ({ ...current, [key]: value }));
+
+  useEffect(() => {
+    try {
+      const settings = loadRecommendationSettings(window.localStorage);
+      setValues((current) => ({
+        ...current,
+        maximumDaysSinceLatestUpload: settings.maximumDaysSinceLatestUpload,
+        minimumRecentAverageViews: settings.minimumRecentAverageViews,
+        minimumRecentVideoCount: settings.minimumRecentVideoCount,
+        allowedCategories: settings.allowedCategories,
+        category: settings.allowedCategories.includes(current.category) ? current.category : "",
+      }));
+    } catch (error: unknown) {
+      console.error("저장된 설정을 스카우트 실행에 적용하지 못했습니다.", error);
+      setSettingsError("저장된 설정이 유효하지 않아 기본 기준을 사용합니다.");
+    }
+  }, []);
 
   const submit = async (event: React.FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
@@ -52,6 +74,7 @@ export default function NewRunPage(): React.ReactNode {
     <PageHeader title="스카우트 실행" description="스카우팅 목표만 입력해도 자동으로 다양한 카테고리와 검색 범위를 탐색합니다." />
     <form onSubmit={submit} noValidate className="panel max-w-4xl p-5 sm:p-8">
       {submitError && <p role="alert" className="mb-6 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{submitError}</p>}
+      {settingsError && <p role="alert" className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">{settingsError}</p>}
       <div className="mb-6"><RunCountdown startedAtMs={runStartedAtMs} /></div>
       <Field label="스카우팅 목표" error={errors.targetRecommendedCount} hint="(명)" wide>
         <NumberInput value={values.targetRecommendedCount} onChange={(value) => setField("targetRecommendedCount", value)} min={1} max={500} />
@@ -69,7 +92,7 @@ export default function NewRunPage(): React.ReactNode {
           <Field label="카테고리" error={errors.category}>
             <select className="input" value={values.category} onChange={(event) => setField("category", event.target.value)}>
               <option value="">전체</option>
-              {creatorCategories.map((category) => <option key={category}>{category}</option>)}
+              {(values.allowedCategories ?? creatorCategories).map((category) => <option key={category}>{category}</option>)}
             </select>
           </Field>
           <Field label="추가 검색어" error={errors.keywords} hint="쉼표 또는 줄바꿈으로 구분" wide>

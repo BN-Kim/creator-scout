@@ -223,4 +223,5 @@ export interface NewRunInput {
   maximumDaysSinceLatestUpload: number;
   minimumRecentAverageViews: number;
   minimumRecentVideoCount: number;
+  allowedCategories?: string[];
 }

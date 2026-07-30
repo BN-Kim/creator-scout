@@ -59,6 +59,38 @@ test("스카우트 실행 폼은 스카우팅 목표만으로 자동 실행을 �
   await expect(page.getByRole("status")).toContainText("스카우팅 목표를 모두 충족했습니다.");
 });
 
+test("저장한 설정 기준이 스카우트 실행 화면과 요청에 적용된다", async ({ page }) => {
+  await page.goto("/settings");
+  await page.getByLabel("최근 업로드 기준").fill("21");
+  await page.getByLabel("최소 평균 조회수").fill("25000");
+  await page.getByLabel("최소 업로드 수").fill("4");
+  for (const category of ["뷰티", "패션", "푸드", "라이프스타일", "여행"]) {
+    await page.getByLabel(category, { exact: true }).uncheck();
+  }
+  await page.getByRole("button", { name: "설정 저장" }).click();
+  await expect(page.getByRole("status")).toContainText("이 브라우저에 저장했습니다.");
+
+  let requestBody: Record<string, unknown> | null = null;
+  await page.route("**/api/runs/automatic", async (route) => {
+    requestBody = route.request().postDataJSON() as Record<string, unknown>;
+    await route.fulfill({ json: { runId: "automatic-h4-mock-run" } });
+  });
+  await page.getByRole("link", { name: "스카우트 실행" }).click();
+
+  await expect(page.getByLabel("최근 업로드 기준")).toHaveValue("21");
+  await expect(page.getByLabel("최소 평균 조회수")).toHaveValue("25000");
+  await expect(page.getByLabel("최소 업로드 수")).toHaveValue("4");
+  await expect(page.getByLabel("카테고리").locator("option")).toHaveText(["전체", "테크"]);
+  await page.getByRole("button", { name: "스카우트 시작" }).click();
+  await expect(page).toHaveURL(/\/runs\/automatic-h4-mock-run$/);
+  expect(requestBody).toMatchObject({
+    maximumDaysSinceLatestUpload: 21,
+    minimumRecentAverageViews: 25000,
+    minimumRecentVideoCount: 4,
+    allowedCategories: ["테크"],
+  });
+});
+
 test("자동 검색 중 1분 기준 남은 시간이 실시간으로 감소한다", async ({ page }) => {
   await page.route("**/api/runs/automatic", async (route) => {
     await new Promise((resolve) => setTimeout(resolve, 1_800));

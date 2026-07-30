@@ -42,7 +42,9 @@ export async function executeAutomaticScouting(
       maximumDaysSinceLatestUpload: input.maximumDaysSinceLatestUpload,
       minimumRecentAverageViews: input.minimumRecentAverageViews,
       minimumRecentVideoCount: input.minimumRecentVideoCount,
-      allowedCategories: input.category ? [input.category] : discoveryTaxonomy.categories.map((category) => category.name),
+      allowedCategories: input.category
+        ? [input.category]
+        : (input.allowedCategories ?? discoveryTaxonomy.categories.map((category) => category.name)),
     },
   });
   saveAutomaticRunResult(result);

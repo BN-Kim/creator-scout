@@ -7,9 +7,10 @@ import { EmptyState } from "@/components/empty-state";
 import { FilterControls } from "@/components/filter-controls";
 import { PageHeader } from "@/components/page-header";
 import { decisionLabels } from "@/config/labels";
-import { defaultRecommendationSettings, recommendationSettingsSchema } from "@/config/recommendation-rules";
+import { defaultRecommendationSettings } from "@/config/recommendation-rules";
 import { HistoryApiClient, migrateBrowserHistory } from "@/lib/history-api-client";
 import { createInitialHistory, evaluateMockRun, MOCK_RUN_ID } from "@/lib/mock-run";
+import { loadRecommendationSettings } from "@/lib/recommendation-settings-storage";
 import { createHistoryRecord } from "@/server/history/history-record";
 import { groupResults } from "@/server/output/group-results";
 import type { CreatorDecision, EvaluatedCreator, ManualCorrection, ManualCorrectionCode, NewRunInput, RecommendationSettings } from "@/types/domain";
@@ -26,10 +27,9 @@ export function RunDetailClient({ runId }: { runId: string }): React.ReactNode {
     if (history.length === 0) history = await repository.addOrUpdate(createInitialHistory());
     const storedCorrections = Object.fromEntries(history.filter((record) => record.scoutingRunId === effectiveRunId && record.manualCorrection).map((record) => [record.identity.internalId, record.manualCorrection as ManualCorrection]));
     let settings: RecommendationSettings = defaultRecommendationSettings;
-    const savedSettings = window.localStorage.getItem("creator-recommendation-settings-v2");
-    if (savedSettings) { try { settings = recommendationSettingsSchema.parse(JSON.parse(savedSettings) as unknown); } catch (error) { console.error("저장된 추천 설정을 적용하지 못했습니다.", error); } }
+    try { settings = loadRecommendationSettings(window.localStorage); } catch (error) { console.error("저장된 추천 설정을 적용하지 못했습니다.", error); }
     const runInput = window.sessionStorage.getItem("mock-scouting-run-input");
-    if (runInput) { try { const parsed = JSON.parse(runInput) as NewRunInput; settings = { ...settings, maximumDaysSinceLatestUpload: parsed.maximumDaysSinceLatestUpload, minimumRecentAverageViews: parsed.minimumRecentAverageViews, minimumRecentVideoCount: parsed.minimumRecentVideoCount, allowedCategories: [parsed.category] }; } catch (error) { console.error("추천 실행 입력값을 적용하지 못했습니다.", error); } }
+    if (runInput) { try { const parsed = JSON.parse(runInput) as NewRunInput; settings = { ...settings, maximumDaysSinceLatestUpload: parsed.maximumDaysSinceLatestUpload, minimumRecentAverageViews: parsed.minimumRecentAverageViews, minimumRecentVideoCount: parsed.minimumRecentVideoCount, allowedCategories: parsed.category ? [parsed.category] : (parsed.allowedCategories ?? settings.allowedCategories) }; } catch (error) { console.error("추천 실행 입력값을 적용하지 못했습니다.", error); } }
     const previousRuns = history.filter((record) => record.scoutingRunId !== effectiveRunId);
     const evaluated = evaluateMockRun(previousRuns, { ...storedCorrections, ...corrections }, settings);
     const records = evaluated.filter((creator) => (!(creator.historyMatch || creator.sameRunMatch) || creator.manualCorrection)).map((creator) => createHistoryRecord(creator, effectiveRunId));

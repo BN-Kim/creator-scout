@@ -19,6 +19,7 @@ export const discoveryTaxonomy = taxonomySchema.parse({
     { name: "뷰티", terms: ["뷰티", "메이크업", "스킨케어"] },
     { name: "패션", terms: ["패션", "코디", "스타일링"] },
     { name: "푸드", terms: ["요리", "레시피", "맛집"] },
+    { name: "테크", terms: ["테크", "IT", "디지털 기기"] },
     { name: "라이프스타일", terms: ["라이프스타일", "일상", "살림"] },
     { name: "여행", terms: ["국내 여행", "여행 브이로그", "지역 여행"] },
   ],
