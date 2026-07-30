@@ -48,10 +48,10 @@ function parseStoredResult(value: string, expectedRunId: string): AutomaticScout
   try {
     parsed = JSON.parse(value) as unknown;
   } catch {
-    throw new Error("저장된 자동 추천 실행 결과 JSON이 올바르지 않습니다.");
+    throw new Error("저장된 자동 스카우트 실행 결과 JSON이 올바르지 않습니다.");
   }
   if (!isRunResultShape(parsed) || parsed.runId !== expectedRunId) {
-    throw new Error("저장된 자동 추천 실행 결과 형식이 올바르지 않습니다.");
+    throw new Error("저장된 자동 스카우트 실행 결과 형식이 올바르지 않습니다.");
   }
   return parsed;
 }

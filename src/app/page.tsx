@@ -51,7 +51,7 @@ export default function DashboardPage(): React.ReactNode {
     <PageHeader
       title="대시보드"
       description="실제 추천 실행과 SQLite 판정 기록을 한국시간 기준으로 추적합니다."
-      action={<Link href="/runs/new" className="button-primary"><Icon name="plus" className="h-4 w-4" />새 추천 실행</Link>}
+      action={<Link href="/runs/new" className="button-primary"><Icon name="plus" className="h-4 w-4" />스카우트 실행</Link>}
     />
     {error && <p role="alert" className="mb-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</p>}
     <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="오늘의 실시간 판정 요약">

@@ -68,7 +68,7 @@ describe("SQLite automatic run result repository", () => {
       "2026-07-29T00:01:00.000Z",
     );
 
-    expect(() => repository.get("automatic-malformed")).toThrow("저장된 자동 추천 실행 결과 형식이 올바르지 않습니다.");
+    expect(() => repository.get("automatic-malformed")).toThrow("저장된 자동 스카우트 실행 결과 형식이 올바르지 않습니다.");
   });
 });
 

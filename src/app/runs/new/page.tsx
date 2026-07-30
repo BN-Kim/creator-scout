@@ -49,49 +49,49 @@ export default function NewRunPage(): React.ReactNode {
   };
 
   return <>
-    <PageHeader title="새 추천 실행" description="추천 목표만 입력해도 자동으로 다양한 카테고리와 검색 범위를 탐색합니다." />
+    <PageHeader title="스카우트 실행" description="스카우팅 목표만 입력해도 자동으로 다양한 카테고리와 검색 범위를 탐색합니다." />
     <form onSubmit={submit} noValidate className="panel max-w-4xl p-5 sm:p-8">
       {submitError && <p role="alert" className="mb-6 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{submitError}</p>}
       <div className="mb-6"><RunCountdown startedAtMs={runStartedAtMs} /></div>
-      <Field label="추천 목표 수" error={errors.targetRecommendedCount} hint="새 추천 완료 인원" wide>
+      <Field label="스카우팅 목표" error={errors.targetRecommendedCount} hint="(명)" wide>
         <NumberInput value={values.targetRecommendedCount} onChange={(value) => setField("targetRecommendedCount", value)} min={1} max={500} />
       </Field>
       <details className="mt-7 rounded-xl border border-slate-200 p-4">
-        <summary className="focus-ring cursor-pointer rounded text-sm font-semibold text-slate-700">고급 검색 설정(선택)</summary>
+        <summary className="focus-ring cursor-pointer rounded text-sm font-semibold text-slate-700">검색 설정(선택)</summary>
         <div className="mt-5 grid gap-6 sm:grid-cols-2">
-          <Field label="발견 모드" error={errors.discoveryMode}>
+          <Field label="검색 모드" error={errors.discoveryMode}>
             <select className="input" value={values.discoveryMode ?? "automatic"} onChange={(event) => setField("discoveryMode", event.target.value as NonNullable<NewRunInput["discoveryMode"]>)}>
-              <option value="automatic">자동 검색어만 사용</option>
-              <option value="manual_extend">자동 검색어에 직접 입력한 검색어 추가</option>
-              <option value="manual_replace">직접 입력한 검색어만 사용</option>
+              <option value="automatic">자동 검색어만</option>
+              <option value="manual_extend">자동 검색어 + 추가 검색어</option>
+              <option value="manual_replace">추가 검색어만</option>
             </select>
           </Field>
-          <Field label="우선 카테고리" error={errors.category} hint="선택하지 않으면 전체">
+          <Field label="카테고리" error={errors.category}>
             <select className="input" value={values.category} onChange={(event) => setField("category", event.target.value)}>
-              <option value="">전체 승인 카테고리</option>
+              <option value="">전체</option>
               {creatorCategories.map((category) => <option key={category}>{category}</option>)}
             </select>
           </Field>
           <Field label="추가 검색어" error={errors.keywords} hint="쉼표 또는 줄바꿈으로 구분" wide>
             <textarea className="input min-h-24" value={values.keywords} onChange={(event) => setField("keywords", event.target.value)} placeholder="자동 모드에서는 비워 두세요" />
           </Field>
-          <Field label="실행 이름" error={errors.name} hint="선택">
+          <Field label="스카우트 제목" error={errors.name} hint="선택">
             <input className="input" value={values.name} onChange={(event) => setField("name", event.target.value)} placeholder="비워 두면 자동 생성" />
           </Field>
-          <Field label="최근 업로드 허용 최대 경과일" error={errors.maximumDaysSinceLatestUpload} hint="7~60일">
+          <Field label="최근 업로드 기준" error={errors.maximumDaysSinceLatestUpload} hint="7~60일">
             <NumberInput value={values.maximumDaysSinceLatestUpload} onChange={(value) => setField("maximumDaysSinceLatestUpload", value)} min={maximumDaysSinceLatestUploadRange.minimum} max={maximumDaysSinceLatestUploadRange.maximum} />
           </Field>
-          <Field label="최소 최근 평균 조회수" error={errors.minimumRecentAverageViews} hint="조회수">
+          <Field label="최소 평균 조회수" error={errors.minimumRecentAverageViews} hint="조회수">
             <NumberInput value={values.minimumRecentAverageViews} onChange={(value) => setField("minimumRecentAverageViews", value)} min={0} />
           </Field>
-          <Field label="최소 최근 영상 수" error={errors.minimumRecentVideoCount} hint="영상 개수">
+          <Field label="최소 업로드 수" error={errors.minimumRecentVideoCount} hint="영상 개수">
             <NumberInput value={values.minimumRecentVideoCount} onChange={(value) => setField("minimumRecentVideoCount", value)} min={2} />
           </Field>
         </div>
       </details>
       <div className="mt-8 flex flex-col gap-4 border-t border-slate-200 pt-6 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-xs text-slate-500">중복·보류·제외·실패는 추천 목표에 포함되지 않습니다.</p>
-        <button className="button-primary" type="submit" disabled={submitting}>{submitting ? "처리 중…" : "추천 실행 시작"}</button>
+        <p className="text-xs text-slate-500">중복·보류·제외·실패는 스카우팅 목표에 포함되지 않습니다.</p>
+        <button className="button-primary" type="submit" disabled={submitting}>{submitting ? "처리 중…" : "스카우트 시작"}</button>
       </div>
     </form>
   </>;

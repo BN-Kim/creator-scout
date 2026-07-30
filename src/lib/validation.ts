@@ -5,8 +5,8 @@ export type ValidationErrors = Partial<Record<keyof NewRunInput, string>>;
 
 export function validateNewRun(input: NewRunInput): ValidationErrors {
   const errors: ValidationErrors = {};
-  if ((input.discoveryMode ?? "manual_replace") !== "automatic" && !input.keywords.trim()) errors.keywords = "수동 발견 모드에는 검색어를 입력해 주세요.";
-  if (!Number.isInteger(input.targetRecommendedCount) || input.targetRecommendedCount < 1 || input.targetRecommendedCount > 500) errors.targetRecommendedCount = "1~500 사이의 추천 목표를 입력해 주세요.";
+  if ((input.discoveryMode ?? "manual_replace") !== "automatic" && !input.keywords.trim()) errors.keywords = "추가 검색어 모드에는 검색어를 입력해 주세요.";
+  if (!Number.isInteger(input.targetRecommendedCount) || input.targetRecommendedCount < 1 || input.targetRecommendedCount > 500) errors.targetRecommendedCount = "1~500 사이의 스카우팅 목표를 입력해 주세요.";
   if (
     !Number.isInteger(input.maximumDaysSinceLatestUpload)
     || input.maximumDaysSinceLatestUpload < maximumDaysSinceLatestUploadRange.minimum

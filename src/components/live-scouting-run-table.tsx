@@ -17,7 +17,7 @@ export function LiveScoutingRunTable({
   availableRunIds: string[];
 }): React.ReactNode {
   if (executions.length === 0) {
-    return <p className="p-6 text-sm text-slate-500">아직 실제 추천 실행 기록이 없습니다.</p>;
+    return <p className="p-6 text-sm text-slate-500">아직 실제 스카우트 기록이 없습니다.</p>;
   }
 
   return <div className="overflow-x-auto">
@@ -28,7 +28,7 @@ export function LiveScoutingRunTable({
           <th className="whitespace-nowrap px-4 py-3">유형</th>
           <th className="whitespace-nowrap px-4 py-3">시작 시각(KST)</th>
           <th className="whitespace-nowrap px-4 py-3">상태</th>
-          <th className="whitespace-nowrap px-4 py-3 text-right">추천 목표</th>
+          <th className="whitespace-nowrap px-4 py-3 text-right">스카우팅 목표</th>
           <th className="whitespace-nowrap px-4 py-3 text-right">추천 충족</th>
           <th className="whitespace-nowrap px-4 py-3 text-right">과거 중복</th>
           <th className="whitespace-nowrap px-4 py-3 text-right">실패</th>
@@ -106,7 +106,7 @@ function ExecutionStatus({ status }: { status: ScoutingRunExecution["status"] })
 function stopReasonLabel(reason: string | null): string {
   if (!reason) return "—";
   const labels: Record<string, string> = {
-    target_reached: "추천 목표 충족",
+    target_reached: "스카우팅 목표 충족",
     source_exhausted: "발견 소스 소진",
     candidate_limit_reached: "후보 한도 도달",
     page_limit_reached: "페이지 한도 도달",

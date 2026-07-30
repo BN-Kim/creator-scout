@@ -20,7 +20,7 @@ export const automaticRunConfigurationSchema = z.object({
   minimumRecentVideoCount: z.number().int().min(2).default(defaultRecommendationSettings.minimumRecentVideoCount),
 }).superRefine((input, context) => {
   if (input.discoveryMode !== "automatic" && !input.keywords) {
-    context.addIssue({ code: z.ZodIssueCode.custom, path: ["keywords"], message: "수동 발견 모드에는 검색어가 필요합니다." });
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["keywords"], message: "추가 검색어 모드에는 검색어가 필요합니다." });
   }
   if (input.keywords && input.keywords.split(/[\n,]/).some((keyword) => keyword.trim() && !isSafeDiscoveryQuery(keyword))) {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ["keywords"], message: "검색어에 허용되지 않는 값이 포함되어 있습니다." });

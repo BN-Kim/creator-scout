@@ -353,9 +353,9 @@ function safetyStopReason(statistics: AutomaticScoutingStatistics, limits: Autom
 
 function validateRequest(request: AutomaticScoutingRunRequest): AutomaticScoutingSafetyLimits {
   if (!request.runId.trim()) throw new Error("실행 ID는 필수입니다.");
-  if (!Number.isInteger(request.targetRecommendedCount) || request.targetRecommendedCount < 1) throw new Error("추천 목표 수는 1 이상의 정수여야 합니다.");
+  if (!Number.isInteger(request.targetRecommendedCount) || request.targetRecommendedCount < 1) throw new Error("스카우팅 목표는 1 이상의 정수여야 합니다.");
   const mode = resolveMode(request);
-  if (mode !== "automatic" && createManualQueries(resolveManualQueries(request), request.preferredCategory ?? request.category).length === 0) throw new Error("수동 발견 모드에는 유효한 검색어가 필요합니다.");
+  if (mode !== "automatic" && createManualQueries(resolveManualQueries(request), request.preferredCategory ?? request.category).length === 0) throw new Error("추가 검색어 모드에는 유효한 검색어가 필요합니다.");
   if ((request.preferredCategory ?? request.category) && !isApprovedCategory(request.preferredCategory ?? request.category ?? "")) throw new Error("승인되지 않은 카테고리입니다.");
   const limits = { ...defaultAutomaticScoutingSafetyLimits, ...request.safetyLimits };
   for (const [name, value] of Object.entries(limits)) if (!Number.isInteger(value) || value < 1) throw new Error(`${name} 안전 한도는 1 이상의 정수여야 합니다.`);

@@ -9,9 +9,9 @@ import type { AutomaticScoutingRunResult, AutomaticScoutingStopReason } from "@/
 import type { CreatorDecision, EvaluatedCreator } from "@/types/domain";
 
 const groupLabels: Record<CreatorDecision, string> = { recommended: "추천", hold: "보류", excluded: "제외" };
-const discoveryModeLabels: Record<DiscoveryMode, string> = { automatic: "자동", manual_replace: "직접 입력만", manual_extend: "자동 + 직접 입력" };
+const discoveryModeLabels: Record<DiscoveryMode, string> = { automatic: "자동 검색어만", manual_replace: "추가 검색어만", manual_extend: "자동 검색어 + 추가 검색어" };
 const stopReasonLabels: Record<AutomaticScoutingStopReason, string> = {
-  target_reached: "추천 목표를 모두 충족했습니다.",
+  target_reached: "스카우팅 목표를 모두 충족했습니다.",
   source_exhausted: "사용 가능한 발견 소스를 모두 확인해 부분 완료했습니다.",
   candidate_limit_reached: "후보 확인 한도에 도달해 부분 완료했습니다.",
   page_limit_reached: "발견 페이지 한도에 도달해 부분 완료했습니다.",
@@ -35,8 +35,8 @@ const failureCategoryLabels: Readonly<Record<string, string>> = {
 export function AutomaticRunResult({ run }: { run: AutomaticScoutingRunResult }): React.ReactNode {
   const groups = groupResults(run.results);
   const stats: ReadonlyArray<readonly [string, string | number]> = [
-    ["발견 모드", discoveryModeLabels[run.statistics.discoveryMode]],
-    ["추천 목표", run.statistics.targetRecommendedCount], ["추천 충족", run.statistics.recommendationsFilled],
+    ["검색 모드", discoveryModeLabels[run.statistics.discoveryMode]],
+    ["스카우팅 목표", run.statistics.targetRecommendedCount], ["추천 충족", run.statistics.recommendationsFilled],
     ["시도한 검색어", run.statistics.queriesAttempted], ["검색한 페이지", run.statistics.pagesScanned],
     ["발견", run.statistics.discovered], ["과거 중복", run.statistics.priorHistorySkipped],
     ["실행 내 중복", run.statistics.sameRunDuplicatesSkipped], ["평가", run.statistics.evaluated],
@@ -44,7 +44,7 @@ export function AutomaticRunResult({ run }: { run: AutomaticScoutingRunResult })
     ["실패", run.statistics.failed],
   ];
   return <>
-    <PageHeader title="자동 추천 실행" description="추천 목표를 채울 때까지 여러 검색어와 다음 페이지를 순환하며 새 후보를 검증합니다." />
+    <PageHeader title="자동 스카우트 실행" description="스카우팅 목표를 채울 때까지 여러 검색어와 다음 페이지를 순환하며 새 후보를 검증합니다." />
     <div role="status" className={`mb-5 rounded-xl border px-4 py-3 text-sm ${run.statistics.stopReason === "target_reached" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-800"}`}>
       <strong>{run.statistics.recommendationsFilled} / {run.statistics.targetRecommendedCount}명 충족</strong><span className="ml-2">{stopReasonLabels[run.statistics.stopReason]}</span>
     </div>
@@ -55,7 +55,7 @@ export function AutomaticRunResult({ run }: { run: AutomaticScoutingRunResult })
       ? <EmptyState title="새로 처리된 결과가 없습니다" description="중복 또는 공급자 실패로 판정과 히스토리가 생성되지 않았습니다." />
       : <div className="space-y-6">{(["recommended", "hold", "excluded"] as const).map((decision) => <ResultGroup key={decision} decision={decision} creators={groups[decision]} />)}</div>}
     {run.failures.length > 0 && <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-      <p>처리 실패 {run.failures.length}건은 추천 목표에 포함되지 않습니다.</p>
+      <p>처리 실패 {run.failures.length}건은 스카우팅 목표에 포함되지 않습니다.</p>
       <p className="mt-1 font-medium">{failureSummary(run)}</p>
     </div>}
   </>;

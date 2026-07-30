@@ -17,6 +17,29 @@ export function formatDateTime(value: string): string {
   }).format(new Date(value));
 }
 
+export function formatHistoryDateTime(value: string): string {
+  const date = new Date(value);
+  const dateParts = new Intl.DateTimeFormat("ko-KR", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    weekday: "short",
+    timeZone: koreanTimeZone,
+  }).formatToParts(date);
+  const getPart = (type: Intl.DateTimeFormatPartTypes): string =>
+    dateParts.find((part) => part.type === type)?.value ?? "";
+  const weekday = getPart("weekday").replace("요일", "");
+  const time = new Intl.DateTimeFormat("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+    timeZone: koreanTimeZone,
+  }).format(date);
+
+  return `${getPart("year")}.${getPart("month")}.${getPart("day")}.(${weekday}) ${time}`;
+}
+
 export function isKoreanCalendarDate(value: string, reference: Date): boolean {
   const formatter = new Intl.DateTimeFormat("en-CA", {
     year: "numeric", month: "2-digit", day: "2-digit", timeZone: koreanTimeZone,

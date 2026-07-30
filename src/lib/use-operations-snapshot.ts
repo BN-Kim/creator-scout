@@ -15,11 +15,11 @@ export function useOperationsSnapshot(): {
   const refresh = useCallback(async (): Promise<void> => {
     try {
       const response = await fetch("/api/operations", { cache: "no-store" });
-      if (!response.ok) throw new Error("추천 실행 기록을 불러오지 못했습니다.");
+      if (!response.ok) throw new Error("스카우트 기록을 불러오지 못했습니다.");
       setData(await response.json() as OperationsSnapshot);
       setError(null);
     } catch (cause: unknown) {
-      setError(cause instanceof Error ? cause.message : "추천 실행 기록을 불러오지 못했습니다.");
+      setError(cause instanceof Error ? cause.message : "스카우트 기록을 불러오지 못했습니다.");
     }
   }, []);
 

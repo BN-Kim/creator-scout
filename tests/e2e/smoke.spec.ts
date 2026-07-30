@@ -43,20 +43,20 @@ test("필수 경로가 모두 성공적으로 로드된다", async ({ page }) =>
   }
 });
 
-test("새 추천 실행 폼은 추천 목표만으로 자동 실행을 시작한다", async ({ page }) => {
+test("스카우트 실행 폼은 스카우팅 목표만으로 자동 실행을 시작한다", async ({ page }) => {
   await page.goto("/runs/new");
-  await page.getByLabel("추천 목표 수").fill("0");
-  await page.getByRole("button", { name: "추천 실행 시작" }).click();
-  await expect(page.getByText("1~500 사이의 추천 목표를 입력해 주세요.")).toBeVisible();
+  await page.getByLabel("스카우팅 목표").fill("0");
+  await page.getByRole("button", { name: "스카우트 시작" }).click();
+  await expect(page.getByText("1~500 사이의 스카우팅 목표를 입력해 주세요.")).toBeVisible();
 
-  await page.getByLabel("추천 목표 수").fill("1");
-  await page.getByRole("button", { name: "추천 실행 시작" }).click();
+  await page.getByLabel("스카우팅 목표").fill("1");
+  await page.getByRole("button", { name: "스카우트 시작" }).click();
 
   await expect(page).toHaveURL(/\/runs\/automatic-[a-f0-9-]+$/);
-  await expect(page.getByRole("heading", { name: "자동 추천 실행" })).toBeVisible();
-  await expect(page.getByRole("region", { name: "실행 통계" })).toContainText("발견 모드자동");
+  await expect(page.getByRole("heading", { name: "자동 스카우트 실행" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "실행 통계" })).toContainText("검색 모드자동 검색어만");
   await expect(page.getByRole("status")).toContainText("1 / 1명 충족");
-  await expect(page.getByRole("status")).toContainText("추천 목표를 모두 충족했습니다.");
+  await expect(page.getByRole("status")).toContainText("스카우팅 목표를 모두 충족했습니다.");
 });
 
 test("자동 검색 중 1분 기준 남은 시간이 실시간으로 감소한다", async ({ page }) => {
@@ -68,15 +68,15 @@ test("자동 검색 중 1분 기준 남은 시간이 실시간으로 감소한�
 
   const countdown = page.getByLabel("자동 검색 제한 시간");
   await expect(countdown).toContainText("01:00");
-  await page.getByRole("button", { name: "추천 실행 시작" }).click();
+  await page.getByRole("button", { name: "스카우트 시작" }).click();
   await expect(countdown).toContainText("00:59", { timeout: 1_600 });
   await expect(page).toHaveURL(/\/runs\/automatic-h4-mock-run$/);
 });
 
-test("대시보드와 추천 실행 기록이 실제 서버 실행을 표시한다", async ({ page }) => {
+test("대시보드와 스카우트 기록이 실제 서버 실행을 표시한다", async ({ page }) => {
   await page.goto("/runs/new");
-  await page.getByLabel("추천 목표 수").fill("1");
-  await page.getByRole("button", { name: "추천 실행 시작" }).click();
+  await page.getByLabel("스카우팅 목표").fill("1");
+  await page.getByRole("button", { name: "스카우트 시작" }).click();
   await expect(page).toHaveURL(/\/runs\/automatic-[a-f0-9-]+$/);
   const completedRunUrl = page.url();
 
@@ -87,20 +87,20 @@ test("대시보드와 추천 실행 기록이 실제 서버 실행을 표시한�
   await expect(page.getByText("실제 추천 실행과 SQLite 판정 기록", { exact: false })).toBeVisible();
   await runLink.click();
   await expect(page).toHaveURL(completedRunUrl);
-  await expect(page.getByRole("heading", { name: "자동 추천 실행" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "자동 스카우트 실행" })).toBeVisible();
 
   await page.goto("/");
   await page.getByRole("link", { name: "전체 실행 히스토리 보기" }).click();
   await expect(page).toHaveURL("/runs");
-  await expect(page.getByRole("heading", { name: "추천 실행 기록" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "스카우트 기록" })).toBeVisible();
   await expect(page.getByRole("cell", { name: "완료" }).first()).toBeVisible();
 });
 
-test("히스토리는 실제 JSON 내보내기 명칭과 KST 판정 시각을 표시한다", async ({ page }) => {
+test("히스토리는 내보내기 명칭과 KST 판정 시각을 표시한다", async ({ page }) => {
   await page.goto("/history");
-  await expect(page.getByRole("button", { name: "JSON 내보내기" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "히스토리 내보내기" })).toBeVisible();
   await expect(page.getByRole("columnheader", { name: /판정 시각\(KST\)/ })).toBeVisible();
-  await expect(page.getByText("목 JSON 내보내기")).toHaveCount(0);
+  await expect(page.getByText("JSON 내보내기", { exact: true })).toHaveCount(0);
 });
 
 test("추천·보류·제외가 렌더링되고 각 크리에이터는 한 그룹에만 존재한다", async ({ page }) => {
@@ -169,7 +169,7 @@ test("수동 교정이 크리에이터를 제외로 이동시키고 표시 히�
   const row = page.getByRole("row").filter({ has: page.getByText("목 크리에이터 01", { exact: true }) });
   await expect(row).toBeVisible();
   await expect(row.getByText("제외", { exact: true })).toHaveCount(2);
-  await expect(row).toContainText("사용자 교정에 따라 제외되었습니다.");
+  await expect(row).toContainText("사용자 교정에 따라 제외됨");
 });
 
 test("반복 실행과 반복 교정은 히스토리 레코드를 중복 생성하지 않는다", async ({ page }) => {
@@ -193,11 +193,11 @@ test("반복 실행과 반복 교정은 히스토리 레코드를 중복 생성�
 
 test("H4 자동 실행은 신규 결과만 표시하고 반복 실행에도 히스토리를 중복 생성하지 않는다", async ({ page }) => {
   await page.goto("/runs/automatic-h4-mock-run");
-  await expect(page.getByRole("heading", { name: "자동 추천 실행" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "자동 스카우트 실행" })).toBeVisible();
   const stats = page.getByRole("region", { name: "실행 통계" });
-  await expect(stats).toContainText("발견 모드직접 입력만");
+  await expect(stats).toContainText("검색 모드추가 검색어만");
   await expect(stats).toContainText("시도한 검색어1");
-  await expect(stats).toContainText("추천 목표1");
+  await expect(stats).toContainText("스카우팅 목표1");
   await expect(stats).toContainText("추천 충족1");
   await expect(stats).toContainText("발견6");
   await expect(stats).toContainText("과거 중복1");
@@ -239,7 +239,7 @@ test("H6 운영 화면은 중지·재개와 예약 활성 상태를 제어한다
 
   await page.getByLabel("예약 이름").fill("H6 허구 정기 실행");
   await page.getByLabel("실행 간격(분)").fill("60");
-  await page.getByLabel("추천 목표 수").fill("3");
+  await page.getByLabel("스카우팅 목표").fill("3");
   await page.getByRole("button", { name: "예약 저장" }).click();
   const row = page.getByRole("row").filter({ hasText: "H6 허구 정기 실행" });
   await expect(row).toContainText("60분");
