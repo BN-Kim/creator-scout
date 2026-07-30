@@ -1,6 +1,6 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 
-const requiredRoutes = ["/", "/runs", "/runs/new", "/runs/mock-new-run", "/runs/automatic-h4-mock-run", "/history", "/settings", "/operations"] as const;
+const requiredRoutes = ["/runs", "/runs/new", "/runs/mock-new-run", "/runs/automatic-h4-mock-run", "/history", "/settings"] as const;
 
 async function resetBrowserStorage(page: Page): Promise<void> {
   await page.goto("/");
@@ -73,25 +73,22 @@ test("자동 검색 중 1분 기준 남은 시간이 실시간으로 감소한�
   await expect(page).toHaveURL(/\/runs\/automatic-h4-mock-run$/);
 });
 
-test("대시보드와 스카우트 기록이 실제 서버 실행을 표시한다", async ({ page }) => {
+test("완료된 실행은 스카우트 기록에서 다시 열 수 있다", async ({ page }) => {
   await page.goto("/runs/new");
   await page.getByLabel("스카우팅 목표").fill("1");
   await page.getByRole("button", { name: "스카우트 시작" }).click();
   await expect(page).toHaveURL(/\/runs\/automatic-[a-f0-9-]+$/);
   const completedRunUrl = page.url();
 
-  await page.goto("/");
-  await expect(page.getByRole("heading", { name: "실행 히스토리" })).toBeVisible();
+  await page.goto("/runs");
+  await expect(page.getByRole("heading", { name: "스카우트 기록" })).toBeVisible();
   const runLink = page.getByRole("link", { name: /automatic-/ }).first();
   await expect(runLink).toBeVisible();
-  await expect(page.getByText("실제 추천 실행과 SQLite 판정 기록", { exact: false })).toBeVisible();
   await runLink.click();
   await expect(page).toHaveURL(completedRunUrl);
   await expect(page.getByRole("heading", { name: "자동 스카우트 실행" })).toBeVisible();
 
-  await page.goto("/");
-  await page.getByRole("link", { name: "전체 실행 히스토리 보기" }).click();
-  await expect(page).toHaveURL("/runs");
+  await page.goto("/runs");
   await expect(page.getByRole("heading", { name: "스카우트 기록" })).toBeVisible();
   await expect(page.getByRole("cell", { name: "완료" }).first()).toBeVisible();
 });
@@ -226,24 +223,17 @@ test("H4 자동 실행은 신규 결과만 표시하고 반복 실행에도 히�
   expect(new Set(repeatedHistory.map((record) => record.id)).size).toBe(4);
 });
 
-test("H6 운영 화면은 중지·재개와 예약 활성 상태를 제어한다", async ({ page }) => {
-  await page.goto("/operations");
-  await expect(page.getByRole("heading", { name: "운영 제어" })).toBeVisible();
-  const status = page.getByRole("region", { name: "운영 상태" });
-  await expect(status).toContainText("운영 중");
-  await page.getByRole("button", { name: "운영 중지" }).click();
-  await expect(status).toContainText("운영 중지");
-  await expect(page.getByRole("status")).toContainText("운영을 중지했습니다.");
-  await page.getByRole("button", { name: "운영 재개" }).click();
-  await expect(status).toContainText("운영 중");
+test("간소화된 메뉴와 기존 진입 주소는 스카우트 실행으로 연결된다", async ({ page }) => {
+  await page.goto("/");
+  await expect(page).toHaveURL("/runs/new");
+  const navigation = page.getByRole("navigation", { name: "주요 메뉴" });
+  await expect(navigation.getByRole("link", { name: "스카우트 실행" })).toBeVisible();
+  await expect(navigation.getByRole("link", { name: "스카우트 기록" })).toBeVisible();
+  await expect(navigation.getByRole("link", { name: "크리에이터 히스토리" })).toBeVisible();
+  await expect(navigation.getByRole("link", { name: "설정" })).toBeVisible();
+  await expect(navigation.getByRole("link", { name: "대시보드" })).toHaveCount(0);
+  await expect(navigation.getByRole("link", { name: "운영 제어" })).toHaveCount(0);
 
-  await page.getByLabel("예약 이름").fill("H6 허구 정기 실행");
-  await page.getByLabel("실행 간격(분)").fill("60");
-  await page.getByLabel("스카우팅 목표").fill("3");
-  await page.getByRole("button", { name: "예약 저장" }).click();
-  const row = page.getByRole("row").filter({ hasText: "H6 허구 정기 실행" });
-  await expect(row).toContainText("60분");
-  await expect(row).toContainText("3명");
-  await row.getByRole("button", { name: "예약 중지" }).click();
-  await expect(row.getByRole("button", { name: "예약 활성화" })).toBeVisible();
+  await page.goto("/operations");
+  await expect(page).toHaveURL("/runs/new");
 });

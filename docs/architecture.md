@@ -4,7 +4,8 @@
 
 | 책임 | 소유 경로 |
 | --- | --- |
-| App Router 페이지 | `src/app/page.tsx`, `src/app/runs/new/page.tsx`, `src/app/runs/[id]/page.tsx`, `src/app/history/page.tsx`, `src/app/settings/page.tsx`, `src/app/operations/page.tsx` |
+| App Router 페이지 | `src/app/runs/new/page.tsx`, `src/app/runs/[id]/page.tsx`, `src/app/history/page.tsx`, `src/app/settings/page.tsx` |
+| 이전 주소 리디렉션 | `src/app/page.tsx`, `src/app/operations/page.tsx` |
 | 실행 오케스트레이션 | `src/server/scouting/automatic-scouting-pipeline.ts`, `src/server/scouting/automatic-scouting-service.ts`, `src/app/api/runs/automatic/route.ts` |
 | H6 예약·잠금·복구 | `src/server/operations/operation-coordinator.ts`, `src/server/operations/operational-scheduler.ts`, `src/server/operations/sqlite-operation-repository.ts` |
 | H6 런타임·운영 API | `src/instrumentation.ts`, `src/server/operations/operation-runtime.ts`, `src/app/api/operations/route.ts` |
@@ -80,7 +81,7 @@ UI
 
 H4.2 오케스트레이션은 발견 후보 수가 아니라 신규 `recommended` 수를 실행 목표로 사용합니다. 공식 검색 할당량을 절약하기 위해 한 번의 발견 요청에서는 최대 50개 후보를 받되 후보를 순차 평가하고 남은 추천 슬롯이 0이 되는 즉시 추가 평가를 중단합니다. 따라서 가져온 후보가 많아도 확정 추천을 목표보다 많이 만들거나 finalized recommendation을 버리지 않습니다. `hold`와 `excluded`는 저장한 뒤 다음 후보를 계속 찾습니다. 중복과 실패는 목표에 포함하지 않으며 후보·페이지·시간·공급자 실패 상한 중 하나에 도달하거나 소스가 소진되면 구조화된 중단 사유와 부분 충족 통계를 반환합니다. 자동 검색은 서버와 UI가 공유하는 1분 마감 시각을 사용합니다. 마감 이후 새 공급자 작업을 기다리지 않고 이미 판정·저장까지 완료된 결과만 부분 결과로 반환하며, 시작된 채 끝나지 않은 후보는 판정이나 히스토리를 만들지 않습니다.
 
-대시보드와 `/runs` 실행 히스토리는 SQLite 운영 실행과 히스토리 API를 최초 진입, 추천 실행 완료 알림, 탭 복귀 시점에 읽습니다. 고정 주기 polling은 사용하지 않습니다. 자동 실행의 상세 결과 묶음도 SQLite에 저장하므로 서버 재시작 이후 같은 실행 ID로 다시 열 수 있습니다. 서버의 판정·실행 시각은 UTC ISO 문자열로 저장하고 사용자 화면에서는 `Asia/Seoul` 시간대로 고정해 표시합니다.
+`/runs` 실행 히스토리는 SQLite 운영 실행과 히스토리 API를 최초 진입, 추천 실행 완료 알림, 탭 복귀 시점에 읽습니다. 고정 주기 polling은 사용하지 않습니다. 자동 실행의 상세 결과 묶음도 SQLite에 저장하므로 서버 재시작 이후 같은 실행 ID로 다시 열 수 있습니다. 서버의 판정·실행 시각은 UTC ISO 문자열로 저장하고 사용자 화면에서는 `Asia/Seoul` 시간대로 고정해 표시합니다. 대시보드와 운영 제어 UI는 사용자 흐름에서 제거했으며 `/`와 이전 `/operations` 주소는 `/runs/new`로 리디렉션합니다. H6 운영 런타임과 API는 실행 안전성을 위해 서버 내부에 유지합니다.
 
 H4.3은 H4.2 앞단에 `AdaptiveQuerySelector`를 둡니다. 서버에서 검증한 분류체계가 좁은·중간·넓은 한국어 검색어를 결정론적으로 만들고, `automatic`, `manual_replace`, `manual_extend` 모드가 선택 가능한 검색어 집합을 정합니다. 쿼리 본문, 정규화 키, 카테고리, 범위, 연속 페이지 토큰, 시도·페이지·중복·판정·실패 집계, 냉각·소진 상태는 SQLite `discovery_query_state`에 저장됩니다. 추천된 크리에이터의 공개 메타데이터에서 안전하게 정규화한 문구만 `discovery_learned_terms`에 탐색 상태로 저장됩니다. 최소 표본 전에는 검증된 상위 검색어가 될 수 없으며 성과가 나쁜 학습 문구는 냉각 또는 폐기됩니다. 이 점수와 상태는 발견 순서만 바꾸고 결정 엔진 입력이나 판정 임계값은 바꾸지 않습니다.
 
