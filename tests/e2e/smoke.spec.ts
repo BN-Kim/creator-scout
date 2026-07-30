@@ -168,7 +168,7 @@ test("수동 교정이 크리에이터를 제외로 이동시키고 표시 히�
   await page.goto("/history");
   const row = page.getByRole("row").filter({ has: page.getByText("목 크리에이터 01", { exact: true }) });
   await expect(row).toBeVisible();
-  await expect(row.getByText("제외", { exact: true })).toHaveCount(2);
+  await expect(row.getByText("제외", { exact: true })).toHaveCount(1);
   await expect(row).toContainText("사용자 교정 제외");
 });
 
