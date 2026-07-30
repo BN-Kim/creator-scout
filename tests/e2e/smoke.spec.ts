@@ -124,8 +124,10 @@ test("완료된 실행은 스카우트 기록에서 다시 열 수 있다", asyn
   await expect(page.getByRole("heading", { name: "스카우트 기록" })).toBeVisible();
   await expect(page.getByRole("columnheader", { name: "실행 시간", exact: true })).toBeVisible();
   await expect(page.getByRole("columnheader", { name: "시작 시각(KST)", exact: true })).toHaveCount(0);
-  await expect(page.getByRole("columnheader", { name: "추천", exact: true })).toHaveClass(/w-px/);
-  await expect(page.getByRole("columnheader", { name: "중복", exact: true })).toHaveClass(/w-px/);
+  await expect(page.getByRole("columnheader", { name: "목표", exact: true })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "스카우팅 목표", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("columnheader", { name: "추천", exact: true })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "중복", exact: true })).toBeVisible();
   await expect(page.getByRole("columnheader", { name: "추천 충족", exact: true })).toHaveCount(0);
   await expect(page.getByRole("columnheader", { name: "과거 중복", exact: true })).toHaveCount(0);
   const executionTime = page.locator("tbody time").first();
@@ -134,6 +136,16 @@ test("완료된 실행은 스카우트 기록에서 다시 열 수 있다", asyn
   );
   await expect(executionTime.locator("span").last()).toHaveText(/^\d{2}:\d{2}:\d{2}$/);
   await expect(page.getByRole("cell", { name: "완료" }).first()).toBeVisible();
+  await expect.poll(() => page.evaluate(
+    () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+  )).toBe(true);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByRole("table")).toBeHidden();
+  await expect(page.getByRole("list", { name: "스카우트 기록 목록" })).toBeVisible();
+  await expect.poll(() => page.evaluate(
+    () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+  )).toBe(true);
 });
 
 test("히스토리는 내보내기 명칭과 KST 실행 시각을 표시한다", async ({ page }) => {

@@ -7,6 +7,13 @@ interface RunMetadata {
   recommendationsFilled: number | null;
 }
 
+interface RunPresentation {
+  execution: ScoutingRunExecution;
+  metadata: RunMetadata;
+  hasStoredResult: boolean;
+  executedAt: ReturnType<typeof formatHistoryDateTimeParts>;
+}
+
 export function LiveScoutingRunTable({
   executions,
   events,
@@ -20,50 +27,107 @@ export function LiveScoutingRunTable({
     return <p className="p-6 text-sm text-slate-500">아직 실제 스카우트 기록이 없습니다.</p>;
   }
 
-  return <div className="overflow-x-auto">
-    <table className="w-full min-w-[1040px] text-left text-sm">
+  const rows: RunPresentation[] = executions.map((execution) => ({
+    execution,
+    metadata: metadataFor(execution, events),
+    hasStoredResult: execution.runId !== null && availableRunIds.includes(execution.runId),
+    executedAt: formatHistoryDateTimeParts(execution.startedAt),
+  }));
+
+  return <>
+    <table className="hidden w-full table-fixed text-left text-sm xl:table">
+      <colgroup>
+        <col className="w-[23%]" />
+        <col className="w-[16%]" />
+        <col className="w-[12%]" />
+        <col className="w-[8%]" />
+        <col className="w-[7%]" />
+        <col className="w-[7%]" />
+        <col className="w-[7%]" />
+        <col className="w-[20%]" />
+      </colgroup>
       <thead className="border-y border-slate-200 bg-slate-50 text-xs font-semibold text-slate-500">
         <tr>
-          <th className="whitespace-nowrap px-4 py-3">실행</th>
-          <th className="w-px whitespace-nowrap px-4 py-3">실행 시간</th>
-          <th className="whitespace-nowrap px-4 py-3">상태</th>
-          <th className="whitespace-nowrap px-4 py-3 text-right">스카우팅 목표</th>
-          <th className="w-px whitespace-nowrap px-2 py-3 text-right">추천</th>
-          <th className="w-px whitespace-nowrap px-2 py-3 text-right">중복</th>
-          <th className="whitespace-nowrap px-4 py-3 text-right">실패</th>
-          <th className="whitespace-nowrap px-4 py-3">종료 사유</th>
+          <th className="px-3 py-3">실행</th>
+          <th className="px-3 py-3">실행 시간</th>
+          <th className="px-3 py-3">상태</th>
+          <th className="px-2 py-3 text-right">목표</th>
+          <th className="px-2 py-3 text-right">추천</th>
+          <th className="px-2 py-3 text-right">중복</th>
+          <th className="px-2 py-3 text-right">실패</th>
+          <th className="px-3 py-3">종료 사유</th>
         </tr>
       </thead>
       <tbody className="divide-y divide-slate-100">
-        {executions.map((execution) => {
-          const metadata = metadataFor(execution, events);
-          const hasStoredResult = execution.runId !== null && availableRunIds.includes(execution.runId);
-          const executedAt = formatHistoryDateTimeParts(execution.startedAt);
+        {rows.map(({ execution, metadata, hasStoredResult, executedAt }) => {
           return <tr key={execution.id} className="hover:bg-slate-50">
-            <td className="whitespace-nowrap px-4 py-4 font-semibold text-ink">
+            <td className="min-w-0 px-3 py-4 font-semibold text-ink">
               {execution.runId && hasStoredResult
-                ? <Link href={`/runs/${execution.runId}`} className="hover:text-brand hover:underline">{shortRunId(execution.runId)}</Link>
-                : <span className="inline-flex items-center gap-2">
-                    <span>{shortRunId(execution.runId ?? execution.id)}</span>
+                ? <Link href={`/runs/${execution.runId}`} className="block truncate hover:text-brand hover:underline" title={execution.runId}>{shortRunId(execution.runId)}</Link>
+                : <span className="flex min-w-0 items-center gap-1.5">
+                    <span className="truncate" title={execution.runId ?? execution.id}>{shortRunId(execution.runId ?? execution.id)}</span>
                     {execution.runId && <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">상세 없음</span>}
                   </span>}
             </td>
-            <td className="w-px whitespace-nowrap px-4 py-4 text-slate-500">
+            <td className="px-3 py-4 text-slate-500">
               <time dateTime={execution.startedAt} className="flex flex-col leading-5">
                 <span>{executedAt.date}</span>
                 <span>{executedAt.time}</span>
               </time>
             </td>
-            <td className="whitespace-nowrap px-4 py-4"><ExecutionStatus status={execution.status} /></td>
-            <td className="px-4 py-4 text-right tabular-nums">{numberOrDash(metadata.targetRecommendedCount)}</td>
-            <td className="w-px whitespace-nowrap px-2 py-4 text-right tabular-nums">{numberOrDash(metadata.recommendationsFilled)}</td>
-            <td className="w-px whitespace-nowrap px-2 py-4 text-right tabular-nums">{formatNumber(execution.priorHistorySkipped)}</td>
-            <td className="px-4 py-4 text-right tabular-nums">{formatNumber(execution.failedCandidates)}</td>
-            <td className="whitespace-nowrap px-4 py-4 text-xs text-slate-500">{stopReasonLabel(execution.stopReason)}</td>
+            <td className="px-3 py-4"><ExecutionStatus status={execution.status} /></td>
+            <td className="px-2 py-4 text-right tabular-nums">{numberOrDash(metadata.targetRecommendedCount)}</td>
+            <td className="px-2 py-4 text-right tabular-nums">{numberOrDash(metadata.recommendationsFilled)}</td>
+            <td className="px-2 py-4 text-right tabular-nums">{formatNumber(execution.priorHistorySkipped)}</td>
+            <td className="px-2 py-4 text-right tabular-nums">{formatNumber(execution.failedCandidates)}</td>
+            <td className="px-3 py-4 text-xs leading-5 text-slate-500">{stopReasonLabel(execution.stopReason)}</td>
           </tr>;
         })}
       </tbody>
     </table>
+    <ul aria-label="스카우트 기록 목록" className="divide-y divide-slate-200 xl:hidden">
+      {rows.map(({ execution, metadata, hasStoredResult, executedAt }) => (
+        <li key={execution.id} className="space-y-4 p-4 sm:p-5">
+          <div className="flex min-w-0 items-start justify-between gap-3">
+            <div className="min-w-0 font-semibold text-ink">
+              {execution.runId && hasStoredResult
+                ? <Link href={`/runs/${execution.runId}`} className="block truncate hover:text-brand hover:underline" title={execution.runId}>{shortRunId(execution.runId)}</Link>
+                : <span className="block truncate" title={execution.runId ?? execution.id}>{shortRunId(execution.runId ?? execution.id)}</span>}
+              {execution.runId && !hasStoredResult && <span className="mt-1 inline-flex rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">상세 없음</span>}
+            </div>
+            <ExecutionStatus status={execution.status} />
+          </div>
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm sm:grid-cols-4">
+            <RunMetric label="실행 시간">
+              <time dateTime={execution.startedAt} className="flex flex-col">
+                <span>{executedAt.date}</span>
+                <span>{executedAt.time}</span>
+              </time>
+            </RunMetric>
+            <RunMetric label="목표" value={numberOrDash(metadata.targetRecommendedCount)} />
+            <RunMetric label="추천" value={numberOrDash(metadata.recommendationsFilled)} />
+            <RunMetric label="중복" value={formatNumber(execution.priorHistorySkipped)} />
+            <RunMetric label="실패" value={formatNumber(execution.failedCandidates)} />
+            <RunMetric label="종료 사유" value={stopReasonLabel(execution.stopReason)} />
+          </dl>
+        </li>
+      ))}
+    </ul>
+  </>;
+}
+
+function RunMetric({
+  label,
+  value,
+  children,
+}: {
+  label: string;
+  value?: string;
+  children?: React.ReactNode;
+}): React.ReactNode {
+  return <div className="min-w-0">
+    <dt className="text-xs font-semibold text-slate-500">{label}</dt>
+    <dd className="mt-1 break-words text-ink">{children ?? value}</dd>
   </div>;
 }
 
