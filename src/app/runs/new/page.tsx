@@ -71,7 +71,7 @@ export default function NewRunPage(): React.ReactNode {
   };
 
   return <>
-    <PageHeader title="스카우트 실행" description="스카우팅 목표만 입력해도 자동으로 다양한 카테고리와 검색 범위를 탐색합니다." />
+    <PageHeader title="스카우트 실행" />
     <form onSubmit={submit} noValidate className="panel max-w-4xl p-5 sm:p-8">
       {submitError && <p role="alert" className="mb-6 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{submitError}</p>}
       {settingsError && <p role="alert" className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">{settingsError}</p>}

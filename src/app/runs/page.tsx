@@ -7,7 +7,7 @@ import { useOperationsSnapshot } from "@/lib/use-operations-snapshot";
 export default function RunsPage(): React.ReactNode {
   const { data, error } = useOperationsSnapshot();
   return <>
-    <PageHeader title="스카우트 기록" description="실제 자동 스카우트의 진행 상태와 결과를 한국시간 기준으로 확인합니다." />
+    <PageHeader title="스카우트 기록" />
     {error && <p role="alert" className="mb-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</p>}
     <section className="panel overflow-hidden">
       <div className="border-b border-slate-200 px-5 py-4">
