@@ -230,21 +230,31 @@ test("H4 자동 실행은 신규 결과만 표시하고 반복 실행에도 히�
   await expect(page.getByRole("heading", { name: "자동 스카우트 실행" })).toBeVisible();
   const stats = page.getByRole("region", { name: "실행 통계" });
   await expect(stats).toContainText("검색 모드추가 검색어만");
-  await expect(stats).toContainText("시도한 검색어1");
+  await expect(stats.locator("[data-statistic-label]")).toHaveText([
+    "스카우팅 목표",
+    "발견",
+    "추천",
+    "보류",
+    "제외",
+    "중복",
+    "실패",
+  ]);
   await expect(stats).toContainText("스카우팅 목표1");
-  await expect(stats).toContainText("추천 충족1");
   await expect(stats).toContainText("발견6");
-  await expect(stats).toContainText("과거 중복1");
-  await expect(stats).toContainText("실행 내 중복1");
-  await expect(stats).toContainText("평가3");
   await expect(stats).toContainText("추천1");
   await expect(stats).toContainText("보류1");
   await expect(stats).toContainText("제외1");
+  await expect(stats).toContainText("중복2");
   await expect(stats).toContainText("실패1");
+  await expect(stats).not.toContainText("과거 중복");
+  await expect(stats).not.toContainText("실행 내 중복");
 
   await expect(page.getByText("H4 허구 추천 채널", { exact: true })).toHaveCount(1);
   await expect(page.getByText("H4 허구 보류 채널", { exact: true })).toHaveCount(1);
   await expect(page.getByText("H4 허구 제외 채널", { exact: true })).toHaveCount(1);
+  await expect(page.locator('[data-result-group="excluded"] [data-decision-reasons] p')).toHaveText([
+    "평균 조회수 미달",
+  ]);
   await expect(page.getByText("H4 허구 과거 채널", { exact: true })).toHaveCount(0);
   await expect(page.getByText("H4 허구 실패 채널", { exact: true })).toHaveCount(0);
   await expect(page.getByRole("status")).toContainText("1 / 1명 충족");

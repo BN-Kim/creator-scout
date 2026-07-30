@@ -2,9 +2,9 @@ import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
 import { formatDate, formatNumber } from "@/lib/format";
+import { formatHistoryReasonLines } from "@/lib/history-presentation";
 import type { DiscoveryMode } from "@/server/discovery/discovery-types";
 import { groupResults } from "@/server/output/group-results";
-import { decisionReasonTexts } from "@/server/rules/reason-codes";
 import type { AutomaticScoutingRunResult, AutomaticScoutingStopReason } from "@/server/scouting/automatic-scouting-types";
 import type { CreatorDecision, EvaluatedCreator } from "@/types/domain";
 
@@ -35,12 +35,12 @@ const failureCategoryLabels: Readonly<Record<string, string>> = {
 export function AutomaticRunResult({ run }: { run: AutomaticScoutingRunResult }): React.ReactNode {
   const groups = groupResults(run.results);
   const stats: ReadonlyArray<readonly [string, string | number]> = [
-    ["검색 모드", discoveryModeLabels[run.statistics.discoveryMode]],
-    ["스카우팅 목표", run.statistics.targetRecommendedCount], ["추천 충족", run.statistics.recommendationsFilled],
-    ["시도한 검색어", run.statistics.queriesAttempted], ["검색한 페이지", run.statistics.pagesScanned],
-    ["발견", run.statistics.discovered], ["과거 중복", run.statistics.priorHistorySkipped],
-    ["실행 내 중복", run.statistics.sameRunDuplicatesSkipped], ["평가", run.statistics.evaluated],
-    ["추천", run.statistics.recommended], ["보류", run.statistics.hold], ["제외", run.statistics.excluded],
+    ["스카우팅 목표", run.statistics.targetRecommendedCount],
+    ["발견", run.statistics.discovered],
+    ["추천", run.statistics.recommended],
+    ["보류", run.statistics.hold],
+    ["제외", run.statistics.excluded],
+    ["중복", run.statistics.priorHistorySkipped + run.statistics.sameRunDuplicatesSkipped],
     ["실패", run.statistics.failed],
   ];
   return <>
@@ -48,8 +48,14 @@ export function AutomaticRunResult({ run }: { run: AutomaticScoutingRunResult })
     <div role="status" className={`mb-5 rounded-xl border px-4 py-3 text-sm ${run.statistics.stopReason === "target_reached" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-800"}`}>
       <strong>{run.statistics.recommendationsFilled} / {run.statistics.targetRecommendedCount}명 충족</strong><span className="ml-2">{stopReasonLabels[run.statistics.stopReason]}</span>
     </div>
-    <section aria-label="실행 통계" className="mb-7 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-      {stats.map(([label, value]) => <div className="panel min-w-0 p-4" key={label}><p className="text-xs font-semibold text-slate-500">{label}</p><p className="mt-2 break-words text-2xl font-bold text-ink">{typeof value === "number" ? formatNumber(value) : value}</p></div>)}
+    <section aria-label="실행 통계" className="mb-7">
+      <div className="mb-3 flex items-center gap-2 text-sm">
+        <span className="text-xs font-semibold text-slate-500">검색 모드</span>
+        <strong className="font-semibold text-ink">{discoveryModeLabels[run.statistics.discoveryMode]}</strong>
+      </div>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-7">
+        {stats.map(([label, value]) => <div className="panel min-w-0 p-4" key={label} data-statistic-card><p className="text-xs font-semibold text-slate-500" data-statistic-label>{label}</p><p className="mt-2 break-words text-2xl font-bold text-ink">{typeof value === "number" ? formatNumber(value) : value}</p></div>)}
+      </div>
     </section>
     {run.results.length === 0
       ? <EmptyState title="새로 처리된 결과가 없습니다" description="중복 또는 공급자 실패로 판정과 히스토리가 생성되지 않았습니다." />
@@ -72,6 +78,6 @@ function failureSummary(run: AutomaticScoutingRunResult): string {
 function ResultGroup({ decision, creators }: { decision: CreatorDecision; creators: EvaluatedCreator[] }): React.ReactNode {
   return <section className="panel overflow-hidden" data-result-group={decision}>
     <div className="flex items-center justify-between border-b border-slate-200 px-4 py-4 sm:px-6"><h2 className="text-lg font-bold text-ink">{groupLabels[decision]}</h2><span className="text-sm text-slate-500">{creators.length}명</span></div>
-    {creators.length === 0 ? <p className="px-6 py-8 text-sm text-slate-500">해당 판정의 신규 결과가 없습니다.</p> : <div className="overflow-x-auto"><table className="w-full min-w-[920px] text-left text-sm"><thead className="bg-slate-50 text-xs text-slate-500"><tr><th className="px-5 py-3">채널명</th><th className="px-5 py-3">카테고리</th><th className="px-5 py-3">기간 내 최근 영상 수</th><th className="px-5 py-3">최근 평균 조회수</th><th className="px-5 py-3">최근 업로드</th><th className="px-5 py-3">판정</th><th className="px-5 py-3">판정 사유</th></tr></thead><tbody className="divide-y divide-slate-100">{creators.map((creator) => <tr key={creator.identity.internalId}><td className="px-5 py-4 font-semibold text-ink"><a className="focus-ring rounded text-brand hover:underline" href={creator.identity.canonicalChannelUrl ?? "#"} target="_blank" rel="noreferrer">{creator.identity.channelName}</a></td><td className="px-5 py-4">{creator.identity.category}</td><td className="px-5 py-4">{creator.evidence.recentVideoCount === null ? "미확인" : `${formatNumber(creator.evidence.recentVideoCount)}개`}</td><td className="px-5 py-4">{creator.evidence.recentAverageViews === null ? "미확인" : formatNumber(creator.evidence.recentAverageViews)}</td><td className="px-5 py-4">{creator.evidence.latestUploadDate ? formatDate(creator.evidence.latestUploadDate) : "미확인"}</td><td className="px-5 py-4"><StatusBadge status={creator.decision} /></td><td className="max-w-sm px-5 py-4 text-slate-600">{decisionReasonTexts(creator.decision, creator.reasonCodes, creator.missingVerificationFields).join(" ")}</td></tr>)}</tbody></table></div>}
-  </section>;
+    {creators.length === 0 ? <p className="px-6 py-8 text-sm text-slate-500">해당 판정의 신규 결과가 없습니다.</p> : <div className="overflow-x-auto"><table className="w-full min-w-[920px] text-left text-sm"><thead className="bg-slate-50 text-xs text-slate-500"><tr><th className="px-5 py-3">채널명</th><th className="px-5 py-3">카테고리</th><th className="px-5 py-3">기간 내 최근 영상 수</th><th className="px-5 py-3">최근 평균 조회수</th><th className="px-5 py-3">최근 업로드</th><th className="px-5 py-3">판정</th><th className="px-5 py-3">판정 사유</th></tr></thead><tbody className="divide-y divide-slate-100">{creators.map((creator) => <tr key={creator.identity.internalId}><td className="px-5 py-4 font-semibold text-ink"><a className="focus-ring rounded text-brand hover:underline" href={creator.identity.canonicalChannelUrl ?? "#"} target="_blank" rel="noreferrer">{creator.identity.channelName}</a></td><td className="px-5 py-4">{creator.identity.category}</td><td className="px-5 py-4">{creator.evidence.recentVideoCount === null ? "미확인" : `${formatNumber(creator.evidence.recentVideoCount)}개`}</td><td className="px-5 py-4">{creator.evidence.recentAverageViews === null ? "미확인" : formatNumber(creator.evidence.recentAverageViews)}</td><td className="px-5 py-4">{creator.evidence.latestUploadDate ? formatDate(creator.evidence.latestUploadDate) : "미확인"}</td><td className="px-5 py-4"><StatusBadge status={creator.decision} /></td><td className="max-w-sm px-5 py-4 text-slate-600"><div className="space-y-1" data-decision-reasons>{formatHistoryReasonLines(creator.koreanExplanation, creator.reasonCodes, creator.decision).map((reason, index) => <p key={`${creator.identity.internalId}-${index}`}>{reason}</p>)}</div></td></tr>)}</tbody></table></div>}
+    </section>;
 }
