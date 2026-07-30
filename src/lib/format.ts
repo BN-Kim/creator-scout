@@ -17,7 +17,12 @@ export function formatDateTime(value: string): string {
   }).format(new Date(value));
 }
 
-export function formatHistoryDateTime(value: string): string {
+export interface HistoryDateTimeParts {
+  date: string;
+  time: string;
+}
+
+export function formatHistoryDateTimeParts(value: string): HistoryDateTimeParts {
   const date = new Date(value);
   const dateParts = new Intl.DateTimeFormat("ko-KR", {
     year: "numeric",
@@ -37,7 +42,15 @@ export function formatHistoryDateTime(value: string): string {
     timeZone: koreanTimeZone,
   }).format(date);
 
-  return `${getPart("year")}.${getPart("month")}.${getPart("day")}.(${weekday}) ${time}`;
+  return {
+    date: `${getPart("year")}.${getPart("month")}.${getPart("day")}.(${weekday})`,
+    time,
+  };
+}
+
+export function formatHistoryDateTime(value: string): string {
+  const parts = formatHistoryDateTimeParts(value);
+  return `${parts.date} ${parts.time}`;
 }
 
 export function isKoreanCalendarDate(value: string, reference: Date): boolean {

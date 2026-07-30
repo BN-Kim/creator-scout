@@ -125,10 +125,15 @@ test("완료된 실행은 스카우트 기록에서 다시 열 수 있다", asyn
   await expect(page.getByRole("cell", { name: "완료" }).first()).toBeVisible();
 });
 
-test("히스토리는 내보내기 명칭과 KST 판정 시각을 표시한다", async ({ page }) => {
+test("히스토리는 내보내기 명칭과 KST 실행 시각을 표시한다", async ({ page }) => {
+  await openMockRun(page);
   await page.goto("/history");
   await expect(page.getByRole("button", { name: "히스토리 내보내기" })).toBeVisible();
-  await expect(page.getByRole("columnheader", { name: /판정 시각\(KST\)/ })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: /실행 시각\(KST\)/ })).toBeVisible();
+  const executedAt = page.locator("tbody time").first();
+  await expect(executedAt.locator("span")).toHaveCount(2);
+  await expect(executedAt.locator("span").first()).toHaveText(/^\d{4}\.\d{2}\.\d{2}\.\([일월화수목금토]\)$/);
+  await expect(executedAt.locator("span").last()).toHaveText(/^\d{2}:\d{2}:\d{2}$/);
   await expect(page.getByText("JSON 내보내기", { exact: true })).toHaveCount(0);
 });
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatDateTime, formatHistoryDateTime, isKoreanCalendarDate } from "@/lib/format";
+import { formatDateTime, formatHistoryDateTime, formatHistoryDateTimeParts, isKoreanCalendarDate } from "@/lib/format";
 
 describe("Korean time formatting", () => {
   it("always displays UTC timestamps in Asia/Seoul time", () => {
@@ -9,6 +9,10 @@ describe("Korean time formatting", () => {
 
   it("formats history timestamps in the compact Korean dashboard format", () => {
     expect(formatHistoryDateTime("2026-07-29T15:30:45.000Z")).toBe("2026.07.30.(목) 00:30:45");
+    expect(formatHistoryDateTimeParts("2026-07-29T15:30:45.000Z")).toEqual({
+      date: "2026.07.30.(목)",
+      time: "00:30:45",
+    });
   });
 
   it("calculates dashboard today boundaries in Korean calendar time", () => {

@@ -21,11 +21,10 @@ export function LiveScoutingRunTable({
   }
 
   return <div className="overflow-x-auto">
-    <table className="w-full min-w-[1120px] text-left text-sm">
+    <table className="w-full min-w-[1040px] text-left text-sm">
       <thead className="border-y border-slate-200 bg-slate-50 text-xs font-semibold text-slate-500">
         <tr>
           <th className="whitespace-nowrap px-4 py-3">실행</th>
-          <th className="whitespace-nowrap px-4 py-3">유형</th>
           <th className="whitespace-nowrap px-4 py-3">시작 시각(KST)</th>
           <th className="whitespace-nowrap px-4 py-3">상태</th>
           <th className="whitespace-nowrap px-4 py-3 text-right">스카우팅 목표</th>
@@ -48,7 +47,6 @@ export function LiveScoutingRunTable({
                     {execution.runId && <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">상세 없음</span>}
                   </span>}
             </td>
-            <td className="whitespace-nowrap px-4 py-4 text-slate-600">{triggerLabel(execution.trigger)}</td>
             <td className="px-4 py-4 whitespace-nowrap text-slate-500">{formatDateTime(execution.startedAt)}</td>
             <td className="whitespace-nowrap px-4 py-4"><ExecutionStatus status={execution.status} /></td>
             <td className="px-4 py-4 text-right tabular-nums">{numberOrDash(metadata.targetRecommendedCount)}</td>
@@ -84,10 +82,6 @@ function numberOrDash(value: number | null): string {
 
 function shortRunId(value: string): string {
   return value.length > 24 ? `${value.slice(0, 21)}…` : value;
-}
-
-function triggerLabel(trigger: ScoutingRunExecution["trigger"]): string {
-  return { manual: "수동", scheduled: "예약", recovery: "복구" }[trigger];
 }
 
 function ExecutionStatus({ status }: { status: ScoutingRunExecution["status"] }): React.ReactNode {
