@@ -122,6 +122,17 @@ test("완료된 실행은 스카우트 기록에서 다시 열 수 있다", asyn
 
   await page.goto("/runs");
   await expect(page.getByRole("heading", { name: "스카우트 기록" })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "실행 시간", exact: true })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "시작 시각(KST)", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("columnheader", { name: "추천", exact: true })).toHaveClass(/w-px/);
+  await expect(page.getByRole("columnheader", { name: "중복", exact: true })).toHaveClass(/w-px/);
+  await expect(page.getByRole("columnheader", { name: "추천 충족", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("columnheader", { name: "과거 중복", exact: true })).toHaveCount(0);
+  const executionTime = page.locator("tbody time").first();
+  await expect(executionTime.locator("span").first()).toHaveText(
+    /^\d{4}\.\d{2}\.\d{2}\.\([일월화수목금토]\)$/,
+  );
+  await expect(executionTime.locator("span").last()).toHaveText(/^\d{2}:\d{2}:\d{2}$/);
   await expect(page.getByRole("cell", { name: "완료" }).first()).toBeVisible();
 });
 

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { formatDateTime, formatNumber } from "@/lib/format";
+import { formatHistoryDateTimeParts, formatNumber } from "@/lib/format";
 import type { OperationalEvent, ScoutingRunExecution } from "@/server/operations/operation-types";
 
 interface RunMetadata {
@@ -25,11 +25,11 @@ export function LiveScoutingRunTable({
       <thead className="border-y border-slate-200 bg-slate-50 text-xs font-semibold text-slate-500">
         <tr>
           <th className="whitespace-nowrap px-4 py-3">실행</th>
-          <th className="whitespace-nowrap px-4 py-3">시작 시각(KST)</th>
+          <th className="w-px whitespace-nowrap px-4 py-3">실행 시간</th>
           <th className="whitespace-nowrap px-4 py-3">상태</th>
           <th className="whitespace-nowrap px-4 py-3 text-right">스카우팅 목표</th>
-          <th className="whitespace-nowrap px-4 py-3 text-right">추천 충족</th>
-          <th className="whitespace-nowrap px-4 py-3 text-right">과거 중복</th>
+          <th className="w-px whitespace-nowrap px-2 py-3 text-right">추천</th>
+          <th className="w-px whitespace-nowrap px-2 py-3 text-right">중복</th>
           <th className="whitespace-nowrap px-4 py-3 text-right">실패</th>
           <th className="whitespace-nowrap px-4 py-3">종료 사유</th>
         </tr>
@@ -38,6 +38,7 @@ export function LiveScoutingRunTable({
         {executions.map((execution) => {
           const metadata = metadataFor(execution, events);
           const hasStoredResult = execution.runId !== null && availableRunIds.includes(execution.runId);
+          const executedAt = formatHistoryDateTimeParts(execution.startedAt);
           return <tr key={execution.id} className="hover:bg-slate-50">
             <td className="whitespace-nowrap px-4 py-4 font-semibold text-ink">
               {execution.runId && hasStoredResult
@@ -47,11 +48,16 @@ export function LiveScoutingRunTable({
                     {execution.runId && <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">상세 없음</span>}
                   </span>}
             </td>
-            <td className="px-4 py-4 whitespace-nowrap text-slate-500">{formatDateTime(execution.startedAt)}</td>
+            <td className="w-px whitespace-nowrap px-4 py-4 text-slate-500">
+              <time dateTime={execution.startedAt} className="flex flex-col leading-5">
+                <span>{executedAt.date}</span>
+                <span>{executedAt.time}</span>
+              </time>
+            </td>
             <td className="whitespace-nowrap px-4 py-4"><ExecutionStatus status={execution.status} /></td>
             <td className="px-4 py-4 text-right tabular-nums">{numberOrDash(metadata.targetRecommendedCount)}</td>
-            <td className="px-4 py-4 text-right tabular-nums">{numberOrDash(metadata.recommendationsFilled)}</td>
-            <td className="px-4 py-4 text-right tabular-nums">{formatNumber(execution.priorHistorySkipped)}</td>
+            <td className="w-px whitespace-nowrap px-2 py-4 text-right tabular-nums">{numberOrDash(metadata.recommendationsFilled)}</td>
+            <td className="w-px whitespace-nowrap px-2 py-4 text-right tabular-nums">{formatNumber(execution.priorHistorySkipped)}</td>
             <td className="px-4 py-4 text-right tabular-nums">{formatNumber(execution.failedCandidates)}</td>
             <td className="whitespace-nowrap px-4 py-4 text-xs text-slate-500">{stopReasonLabel(execution.stopReason)}</td>
           </tr>;
