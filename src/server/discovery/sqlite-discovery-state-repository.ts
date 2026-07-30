@@ -1,6 +1,6 @@
 import type { SqliteDatabase } from "@/server/database/database";
 import type { DiscoveryStateRepository } from "@/server/discovery/discovery-state-repository";
-import type { DiscoveryQueryDefinition, DiscoveryQueryDelta, DiscoveryQueryState, LearnedDiscoveryTerm } from "@/server/discovery/discovery-types";
+import type { DiscoveryQueryDefinition, DiscoveryQueryDelta, DiscoveryQueryState, LearnedDiscoveryTerm, LearnedTermSource } from "@/server/discovery/discovery-types";
 import { normalizeDiscoveryQuery } from "@/server/discovery/discovery-taxonomy";
 
 interface QueryRow {
@@ -14,7 +14,8 @@ interface QueryRow {
 interface LearnedRow {
   normalized_key: string; phrase: string; category: string; sample_count: number; recommended_count: number;
   duplicate_count: number; excluded_count: number; failed_count: number; state: LearnedDiscoveryTerm["state"];
-  cooldown_until: string | null; created_at: string; updated_at: string;
+  cooldown_until: string | null; source_channel_id: string | null; source_public_url: string | null;
+  source_evidence_json: string; created_at: string; updated_at: string;
 }
 
 export class SqliteDiscoveryStateRepository implements DiscoveryStateRepository {
@@ -52,13 +53,23 @@ export class SqliteDiscoveryStateRepository implements DiscoveryStateRepository 
       .run(cooldownUntil, exhausted ? 1 : 0, now, key);
   }
 
-  upsertLearnedTerms(phrases: readonly string[], category: string, now: string): void {
+  upsertLearnedTerms(phrases: readonly string[], category: string, source: LearnedTermSource, now: string): void {
     const statement = this.database.prepare(`INSERT INTO discovery_learned_terms
-      (normalized_key, phrase, category, sample_count, recommended_count, state, created_at, updated_at)
-      VALUES (?, ?, ?, 0, 0, 'exploratory', ?, ?)
+      (normalized_key, phrase, category, sample_count, recommended_count, state,
+       source_channel_id, source_public_url, source_evidence_json, created_at, updated_at)
+      VALUES (?, ?, ?, 0, 0, 'exploratory', ?, ?, ?, ?, ?)
       ON CONFLICT(normalized_key) DO NOTHING`);
     this.database.transaction(() => {
-      for (const phrase of phrases) statement.run(normalizeDiscoveryQuery(phrase), phrase, category, now, now);
+      for (const phrase of phrases) statement.run(
+        normalizeDiscoveryQuery(phrase),
+        phrase,
+        category,
+        source.channelId,
+        source.publicUrl,
+        JSON.stringify(source.evidence),
+        now,
+        now,
+      );
     })();
   }
 
@@ -82,8 +93,19 @@ export class SqliteDiscoveryStateRepository implements DiscoveryStateRepository 
       phrase: row.phrase, normalizedKey: row.normalized_key, category: row.category, sampleCount: row.sample_count,
       recommendedCount: row.recommended_count, duplicateCount: row.duplicate_count, excludedCount: row.excluded_count,
       failedCount: row.failed_count, state: row.state, cooldownUntil: row.cooldown_until,
+      sourceChannelId: row.source_channel_id, sourcePublicUrl: row.source_public_url,
+      sourceEvidence: parseSourceEvidence(row.source_evidence_json),
       createdAt: row.created_at, updatedAt: row.updated_at,
     }));
+  }
+}
+
+function parseSourceEvidence(value: string): string[] {
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return Array.isArray(parsed) && parsed.every((item) => typeof item === "string") ? parsed : [];
+  } catch {
+    return [];
   }
 }
 

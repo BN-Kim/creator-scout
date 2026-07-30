@@ -59,6 +59,15 @@ export function createUncheckedRecruitmentEvidence(): RecruitmentEvidence {
       verifiedAt: new Date(0).toISOString(),
       sources: [],
     },
+    categoryEvidence: {
+      verifiedCategory: null,
+      verificationState: "not_checked",
+      companyChannelConfirmed: null,
+      scores: {},
+      matchedSignals: [],
+      verifiedAt: new Date(0).toISOString(),
+      sources: [],
+    },
   };
 }
 
@@ -110,6 +119,7 @@ export function normalizeApprovedRecruitmentEvidence(
     ),
     koreanSuitability: normalizeSuitability(suitabilityItems),
     koreanLanguageActivity: createUncheckedRecruitmentEvidence().koreanLanguageActivity,
+    categoryEvidence: createUncheckedRecruitmentEvidence().categoryEvidence,
   };
 }
 

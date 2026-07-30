@@ -1,5 +1,5 @@
 import type { DiscoveryStateRepository } from "@/server/discovery/discovery-state-repository";
-import type { DiscoveryQueryDefinition, DiscoveryQueryDelta, DiscoveryQueryState, LearnedDiscoveryTerm } from "@/server/discovery/discovery-types";
+import type { DiscoveryQueryDefinition, DiscoveryQueryDelta, DiscoveryQueryState, LearnedDiscoveryTerm, LearnedTermSource } from "@/server/discovery/discovery-types";
 import { normalizeDiscoveryQuery } from "@/server/discovery/discovery-taxonomy";
 
 export class InMemoryDiscoveryStateRepository implements DiscoveryStateRepository {
@@ -40,7 +40,7 @@ export class InMemoryDiscoveryStateRepository implements DiscoveryStateRepositor
     if (state) this.queries.set(key, { ...state, cooldownUntil, exhausted, updatedAt: now });
   }
 
-  upsertLearnedTerms(phrases: readonly string[], category: string, now: string): void {
+  upsertLearnedTerms(phrases: readonly string[], category: string, source: LearnedTermSource, now: string): void {
     for (const phrase of phrases) {
       const key = normalizeDiscoveryQuery(phrase);
       const current = this.terms.get(key);
@@ -48,7 +48,9 @@ export class InMemoryDiscoveryStateRepository implements DiscoveryStateRepositor
         ...current,
       } : {
         phrase, normalizedKey: key, category, sampleCount: 0, recommendedCount: 0, duplicateCount: 0,
-        excludedCount: 0, failedCount: 0, state: "exploratory", cooldownUntil: null, createdAt: now, updatedAt: now,
+        excludedCount: 0, failedCount: 0, state: "exploratory", cooldownUntil: null,
+        sourceChannelId: source.channelId, sourcePublicUrl: source.publicUrl, sourceEvidence: [...source.evidence],
+        createdAt: now, updatedAt: now,
       });
     }
   }

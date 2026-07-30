@@ -27,6 +27,7 @@ describe("SQLite history repository", () => {
       { version: 2, name: "create_discovery_state" },
       { version: 3, name: "create_operational_scheduler" },
       { version: 4, name: "persist_automatic_run_results" },
+      { version: 5, name: "add_learned_term_provenance" },
     ]);
     expect(tables).toEqual(expect.arrayContaining([
       "history_records", "history_identity_keys", "discovery_query_state", "discovery_learned_terms",

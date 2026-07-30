@@ -9,6 +9,16 @@ export type OrganizationType = "company" | "agency" | "management" | "mcn" | "la
 export type AffiliationType = OrganizationType | "independent" | "unknown";
 export type KoreanLanguageActivityState = "likely" | "unclear" | "unlikely";
 
+export interface CreatorCategoryEvidence {
+  verifiedCategory: string | null;
+  verificationState: VerificationState;
+  companyChannelConfirmed: boolean | null;
+  scores: Record<string, number>;
+  matchedSignals: string[];
+  verifiedAt: string;
+  sources: RecruitmentEvidenceSource[];
+}
+
 export interface RecruitmentEvidenceSource {
   sourceId: string;
   sourceType: "youtube_channel_about" | "youtube_video_description" | "creator_official_website" | "creator_public_profile";
@@ -58,6 +68,7 @@ export interface RecruitmentEvidence {
   affiliationVerificationState: RecruitmentVerificationState;
   koreanSuitability: KoreanSuitabilityEvidence;
   koreanLanguageActivity: KoreanLanguageActivityEvidence;
+  categoryEvidence: CreatorCategoryEvidence;
   /** Safe, normalized public-metadata phrases eligible only for discovery exploration. */
   exploratoryDiscoveryPhrases?: string[];
 }
@@ -82,6 +93,9 @@ export interface CreatorIdentity {
   youtubeChannelId: string | null;
   youtubeHandle: string | null;
   sourceUrls: string[];
+  /** Category attached to the discovery query, not verified creator evidence. */
+  discoveryCategory?: string;
+  /** Verified category, or `미분류` when public evidence is insufficient. */
   category: string;
   identityVerificationState: VerificationState;
 }

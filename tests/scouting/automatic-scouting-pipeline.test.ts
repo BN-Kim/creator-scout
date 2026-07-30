@@ -104,7 +104,12 @@ describe("automatic scouting pipeline", () => {
 
     expect(result.results[0]).toMatchObject({
       decision: "hold",
-      identity: { youtubeChannelId: CHANNEL_A, category: "뷰티", identityVerificationState: "confirmed" },
+      identity: {
+        youtubeChannelId: CHANNEL_A,
+        discoveryCategory: "뷰티",
+        category: "미분류",
+        identityVerificationState: "confirmed",
+      },
       evidence: { evidenceSource: "fictional_mock", recentVideoCount: 5, recentAverageViews: 15000 },
     });
     expect(repository.load()).toHaveLength(1);
@@ -160,7 +165,7 @@ describe("automatic scouting pipeline", () => {
     expect(backingRepository.load()).toHaveLength(1);
   });
 
-  it("fetches quota-efficient discovery pages but stops evaluation exactly at the recommendation target", async () => {
+  it("fetches efficient discovery pages while stopping evaluation exactly at the recommendation target", async () => {
     const repository = createRepository();
     const pages = [[CHANNEL_A, CHANNEL_B], [CHANNEL_C, CHANNEL_D]];
     const discoveryCalls: number[] = [];
@@ -185,6 +190,48 @@ describe("automatic scouting pipeline", () => {
     expect(result.statistics.discovered).toBe(3);
     expect(result.results).toHaveLength(3);
     expect(result.statistics).toMatchObject({ recommended: 2, recommendationsFilled: 2, stopReason: "target_reached" });
+  });
+
+  it("queues a full provider page and rotates to another category after ten evaluations", async () => {
+    const repository = createRepository();
+    const firstPageIds = "jklmnopqrstu".split("").map((letter) => `UC${letter.repeat(22)}`);
+    const rotatedChannelId = `UC${"v".repeat(22)}`;
+    const discoveryQueries: string[] = [];
+    const discoveryProvider: YouTubeCandidateDiscoveryProvider = {
+      discoverCandidates: async ({ query }) => {
+        discoveryQueries.push(query);
+        const ids = discoveryQueries.length === 1
+          ? firstPageIds
+          : discoveryQueries.length === 2
+            ? [rotatedChannelId]
+            : [];
+        return {
+          candidates: ids.map((channelId) => ({ ...candidate(channelId), sourceQuery: query })),
+          nextPageToken: null,
+          raw: { fixture: true },
+        };
+      },
+    };
+    const harness = createHarness([], repository, {
+      discoveryProvider,
+      discoveryStateRepository: new InMemoryDiscoveryStateRepository(),
+    });
+
+    const result = await harness.pipeline.run({
+      runId: "category-fair-page-queue",
+      discoveryMode: "automatic",
+      targetRecommendedCount: 99,
+      safetyLimits: { maxScannedCandidates: 13 },
+      settings: defaultRecommendationSettings,
+    });
+
+    const identityOrder = harness.events
+      .filter((event) => event.startsWith("identity:"))
+      .map((event) => event.slice("identity:".length));
+    expect(identityOrder.slice(0, 10)).toEqual(firstPageIds.slice(0, 10));
+    expect(identityOrder[10]).toBe(rotatedChannelId);
+    expect(new Set(discoveryQueries.slice(0, 2)).size).toBe(2);
+    expect(result.statistics).toMatchObject({ discovered: 13, stopReason: "candidate_limit_reached" });
   });
 
   it("collects normalized H5 evidence only for new identities and keeps repeated runs idempotent", async () => {
@@ -436,7 +483,7 @@ describe("automatic scouting pipeline", () => {
     expect(holdState.listLearnedTerms()).toEqual([]);
   });
 
-  it("continues across automatically selected queries with quota-efficient discovery batches", async () => {
+  it("continues across automatically selected queries with category-fair discovery turns", async () => {
     const repository = createRepository();
     const discoveryState = new InMemoryDiscoveryStateRepository();
     const ids = [CHANNEL_A, CHANNEL_B];
@@ -599,6 +646,15 @@ function fictionalRecruitmentEvidence() {
   };
   return {
     ...createUncheckedRecruitmentEvidence(),
+    categoryEvidence: {
+      verifiedCategory: "뷰티",
+      verificationState: "confirmed" as const,
+      companyChannelConfirmed: null,
+      scores: { 뷰티: 12 },
+      matchedSignals: ["채널 설명: 뷰티"],
+      verifiedAt: NOW.toISOString(),
+      sources: [source],
+    },
     contacts: [{
       email: "h5-pipeline@example.invalid",
       classification: "personal" as const,

@@ -162,4 +162,14 @@ export const databaseMigrations: readonly DatabaseMigration[] = [
       "CREATE INDEX automatic_run_results_completed_idx ON automatic_scouting_run_results(completed_at DESC)",
     ],
   },
+  {
+    version: 5,
+    name: "add_learned_term_provenance",
+    statements: [
+      "ALTER TABLE discovery_learned_terms ADD COLUMN source_channel_id TEXT",
+      "ALTER TABLE discovery_learned_terms ADD COLUMN source_public_url TEXT",
+      "ALTER TABLE discovery_learned_terms ADD COLUMN source_evidence_json TEXT NOT NULL DEFAULT '[]'",
+      "CREATE INDEX discovery_learned_source_idx ON discovery_learned_terms(source_channel_id)",
+    ],
+  },
 ];

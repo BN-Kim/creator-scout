@@ -37,6 +37,7 @@ export function applyRecruitmentEvidence(
     mcnRisk: hasAffiliation(organizationAffiliations, "mcn") ? true : base.mcnRisk,
     labelRisk: hasAffiliation(organizationAffiliations, "label") ? true : base.labelRisk,
     companyChannelRisk: hasAffiliation(organizationAffiliations, "company") ? true : base.companyChannelRisk,
+    ...(recruitment.categoryEvidence.companyChannelConfirmed === true ? { companyChannelRisk: true } : {}),
     koreanAudienceSuitable: suitability.verificationState === "confirmed" ? suitability.koreanAudienceSuitable : null,
     foreignAudienceRisk: suitability.verificationState === "confirmed" ? suitability.foreignAudienceRisk : null,
     recruitmentSuitability: domesticActivitySatisfied ? true : domesticActivityRejected ? false : null,

@@ -4,6 +4,7 @@ import {
   normalizeApprovedRecruitmentEvidence,
 } from "@/server/providers/recruitment/approved-public-provider";
 import { evaluateKoreanLanguageActivity } from "@/server/providers/recruitment/korean-language-activity";
+import { classifyCreatorCategory } from "@/server/providers/recruitment/creator-category-classifier";
 import type { LiveRecruitmentProviderConfig } from "@/server/providers/recruitment/live-provider-config";
 import type {
   OfficialSiteCollection,
@@ -106,10 +107,11 @@ export class LiveRecruitmentEvidenceProvider implements RecruitmentEvidenceProvi
     const approvedSourceIds = new Set(items.map((item) => item.source.sourceId));
     const normalized = normalizeApprovedRecruitmentEvidence(items, approvedSourceIds);
     normalized.koreanLanguageActivity = evaluateKoreanLanguageActivity(snapshot, checkedAt);
+    normalized.categoryEvidence = classifyCreatorCategory(snapshot, checkedAt);
     normalized.exploratoryDiscoveryPhrases = extractSafeDiscoveryPhrases([
       snapshot.channelDescription ?? "",
       ...snapshot.recentVideos.flatMap((video) => [video.title, video.description ?? ""]),
-    ], snapshot.channelTitle);
+    ], snapshot.channelTitle, normalized.categoryEvidence.verifiedCategory);
     return {
       normalized,
       raw: {

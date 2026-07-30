@@ -13,6 +13,17 @@ describe("deterministic creator evaluation", () => {
   it("defensively excludes duplicate inputs that bypass pipeline checks", () => { const evaluated = evaluateMockRun(createInitialHistory()); expect(evaluated[20].reasonCodes).toContain("prior_history_duplicate"); expect(evaluated[21].reasonCodes).toContain("same_run_duplicate"); expect(evaluated[20].decision).toBe("excluded"); expect(evaluated[21].decision).toBe("excluded"); });
   it("manual correction overrides positive evidence", () => { const result = evaluate(23); expect(result.decision).toBe("excluded"); expect(result.reasonCodes).toContain("user_corrected_invalid"); });
   it("does not invent a subscriber threshold", () => { const result = evaluate(24); expect(result.decision).toBe("recommended"); expect(result.warningChecks.join(" ")).toContain("구독자 기준"); });
+  it("holds an unverified category instead of trusting the discovery category", () => {
+    const source = mockCreatorInputs[0];
+    const result = evaluateCreator({
+      ...source,
+      identity: { ...source.identity, discoveryCategory: "푸드", category: "미분류" },
+      evidence: { ...source.evidence, categoryFit: null },
+    }, defaultRecommendationSettings, [], [], new Date("2026-07-22T07:00:00Z"));
+    expect(result.decision).toBe("hold");
+    expect(result.reasonCodes).toContain("missing_verification");
+    expect(result.missingVerificationFields).toContain("카테고리 적합성");
+  });
 
   it("excludes a low-view creator when every available recent video has a confirmed view count", () => {
     const base = mockCreatorInputs[0];

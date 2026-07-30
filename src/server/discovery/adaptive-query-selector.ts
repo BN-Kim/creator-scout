@@ -11,6 +11,7 @@ export interface AdaptiveQuerySelectorOptions {
 
 export class AdaptiveQuerySelector {
   private readonly attemptedThisRun = new Set<string>();
+  private readonly selectedCategoryCounts = new Map<string, number>();
   private lastCategory: string | null = null;
   private selectionCount = 0;
 
@@ -27,11 +28,17 @@ export class AdaptiveQuerySelector {
         this.repository.setCooldown(state.normalizedKey, null, false, now.toISOString());
       }
     }
-    const automatic = this.options.mode === "manual_replace" ? [] : generateTaxonomyQueries();
-    const manual = this.options.mode === "automatic" ? [] : createManualQueries(this.options.manualQueries, this.options.preferredCategory);
+    const automatic = this.options.mode === "manual_replace"
+      ? []
+      : generateTaxonomyQueries().filter((query) => matchesPreferredCategory(query, this.options.preferredCategory));
+    const manual = this.options.mode === "automatic"
+      ? []
+      : createManualQueries(this.options.manualQueries, this.options.preferredCategory)
+        .filter((query) => matchesPreferredCategory(query, this.options.preferredCategory));
     const nowMs = now.getTime();
     const learned = this.options.mode === "manual_replace" ? [] : this.repository.listLearnedTerms()
       .filter((term) => term.state !== "retired"
+        && (!this.options.preferredCategory || term.category === this.options.preferredCategory)
         && (term.state !== "cooldown" || !term.cooldownUntil || Date.parse(term.cooldownUntil) <= nowMs)
         && isSafeDiscoveryQuery(term.phrase))
       .map((term): DiscoveryQueryDefinition => ({
@@ -46,9 +53,14 @@ export class AdaptiveQuerySelector {
 
   next(recommendationsFilled: number): DiscoveryQueryState | null {
     const nowMs = this.now().getTime();
-    const manualKeys = new Set(createManualQueries(this.options.manualQueries, this.options.preferredCategory).map((query) => query.normalizedKey));
+    const manualKeys = new Set(
+      createManualQueries(this.options.manualQueries, this.options.preferredCategory)
+        .filter((query) => matchesPreferredCategory(query, this.options.preferredCategory))
+        .map((query) => query.normalizedKey),
+    );
     const states = this.repository.listQueries().filter((state) =>
-      isAllowedForMode(state, this.options.mode, manualKeys)
+      matchesPreferredCategory(state, this.options.preferredCategory)
+      && isAllowedForMode(state, this.options.mode, manualKeys)
       && !state.exhausted
       && !this.attemptedThisRun.has(state.normalizedKey)
       && (!state.cooldownUntil || Date.parse(state.cooldownUntil) <= nowMs),
@@ -62,17 +74,29 @@ export class AdaptiveQuerySelector {
       : strategy === 1
         ? state.candidatesScanned > 0 && state.candidatesScanned < minimumProvenQuerySample
         : state.candidatesScanned === 0);
-    const ranked = [...(strategicPool.length > 0 ? strategicPool : scoped)].sort((left, right) => compareQueries(left, right, this.lastCategory));
+    const ranked = [...(strategicPool.length > 0 ? strategicPool : scoped)]
+      .sort((left, right) => compareQueries(left, right, this.lastCategory, this.selectedCategoryCounts));
     const selected = ranked[0];
     this.selectionCount += 1;
     this.attemptedThisRun.add(selected.normalizedKey);
     this.lastCategory = selected.category;
+    this.selectedCategoryCounts.set(
+      selected.category,
+      (this.selectedCategoryCounts.get(selected.category) ?? 0) + 1,
+    );
     return selected;
   }
 
   allowContinuation(state: DiscoveryQueryState): void {
     this.attemptedThisRun.delete(state.normalizedKey);
   }
+}
+
+function matchesPreferredCategory(
+  query: Pick<DiscoveryQueryDefinition, "category">,
+  preferredCategory: string | undefined,
+): boolean {
+  return !preferredCategory || query.category === preferredCategory;
 }
 
 function isAllowedForMode(state: DiscoveryQueryState, mode: DiscoveryMode, manualKeys: ReadonlySet<string>): boolean {
@@ -89,9 +113,17 @@ function scopeOrder(recommendationsFilled: number, states: readonly DiscoveryQue
   return ["narrow", "medium", "broad"];
 }
 
-function compareQueries(left: DiscoveryQueryState, right: DiscoveryQueryState, lastCategory: string | null): number {
+function compareQueries(
+  left: DiscoveryQueryState,
+  right: DiscoveryQueryState,
+  lastCategory: string | null,
+  categoryCounts: ReadonlyMap<string, number>,
+): number {
   const leftScore = scoreDiscoveryQuery(left);
   const rightScore = scoreDiscoveryQuery(right);
+  const leftCategoryCount = categoryCounts.get(left.category) ?? 0;
+  const rightCategoryCount = categoryCounts.get(right.category) ?? 0;
+  if (leftCategoryCount !== rightCategoryCount) return leftCategoryCount - rightCategoryCount;
   const leftDiversity = left.category === lastCategory ? 1 : 0;
   const rightDiversity = right.category === lastCategory ? 1 : 0;
   if (leftDiversity !== rightDiversity) return leftDiversity - rightDiversity;

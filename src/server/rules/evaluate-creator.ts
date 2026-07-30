@@ -33,7 +33,8 @@ export function evaluateCreator(input: CreatorInput, settings: RecommendationSet
   const traffic = evaluateRecentTraffic(e, settings);
   addHard(traffic.viralDistortion, "viral_video_distortion", "조회수 왜곡 없음");
   if (traffic.average !== null && traffic.complete) addHard(traffic.belowThreshold, "recent_views_below_threshold", "최근 평균 조회수"); else missing.push("대표 최근 조회수");
-  addHard(e.categoryFit === false || !settings.allowedCategories.includes(input.identity.category), "category_mismatch", "카테고리 적합");
+  addHard(e.categoryFit === false || (e.categoryFit === true && !settings.allowedCategories.includes(input.identity.category)), "category_mismatch", "카테고리 적합");
+  if (e.categoryFit === null) missing.push("카테고리 적합성");
   addHard(e.foreignAudienceRisk === true, "foreign_audience_heavy", "국내 시청자 적합");
   addHard(e.overseasBaseRisk === true, "overseas_based", "국내 기반");
   addHard(e.celebrityRisk === true, "celebrity_channel", "비연예인");

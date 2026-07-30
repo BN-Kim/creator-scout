@@ -56,8 +56,17 @@ export interface LearnedDiscoveryTerm {
   failedCount: number;
   state: LearnedTermState;
   cooldownUntil: string | null;
+  sourceChannelId: string | null;
+  sourcePublicUrl: string | null;
+  sourceEvidence: string[];
   createdAt: string;
   updatedAt: string;
+}
+
+export interface LearnedTermSource {
+  channelId: string;
+  publicUrl: string;
+  evidence: string[];
 }
 
 export interface QueryQualityScore {

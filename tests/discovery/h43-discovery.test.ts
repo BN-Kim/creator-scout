@@ -8,7 +8,7 @@ import { extractSafeDiscoveryPhrases } from "@/server/discovery/learned-phrase-e
 import { scoreDiscoveryQuery } from "@/server/discovery/query-quality";
 import { SqliteDiscoveryStateRepository } from "@/server/discovery/sqlite-discovery-state-repository";
 import { SqliteHistoryRepository } from "@/server/history/sqlite-history-repository";
-import { AutomaticScoutingPipeline } from "@/server/scouting/automatic-scouting-pipeline";
+import { AutomaticScoutingPipeline, maximumCandidatesPerDiscoveryPage } from "@/server/scouting/automatic-scouting-pipeline";
 
 const NOW = new Date("2026-07-22T10:00:00.000Z");
 const databases: Database.Database[] = [];
@@ -52,6 +52,33 @@ describe("H4.3 autonomous discovery", () => {
     expect(database.prepare("SELECT COUNT(*) AS count FROM history_records").get()).toEqual({ count: 0 });
   });
 
+  it("caps each query turn and rotates categories before one high-volume query can dominate", async () => {
+    const { discovery, history } = repositories();
+    const requests: Array<{ query: string; maxResults: number }> = [];
+    const pipeline = new AutomaticScoutingPipeline({
+      discoveryProvider: {
+        discoverCandidates: async ({ query, maxResults }) => {
+          requests.push({ query, maxResults });
+          return { candidates: [], nextPageToken: null, raw: {} };
+        },
+      },
+      identityProvider: { resolveIdentity: async () => { throw new Error("should not resolve"); } },
+      evidenceProvider: {
+        getChannelEvidence: async () => { throw new Error("should not collect"); },
+        getRecentVideoEvidence: async () => { throw new Error("should not collect"); },
+      },
+      historyRepository: history,
+      discoveryStateRepository: discovery,
+      now: () => NOW,
+    });
+
+    await pipeline.run({ runId: "h43-fair-query-turns", targetRecommendedCount: 1, settings: defaultRecommendationSettings });
+
+    const categoryByQuery = new Map(generateTaxonomyQueries().map((query) => [query.query, query.category]));
+    expect(requests.every((request) => request.maxResults <= maximumCandidatesPerDiscoveryPage)).toBe(true);
+    expect(new Set(requests.slice(0, 6).map((request) => categoryByQuery.get(request.query))).size).toBe(6);
+  });
+
   it("supports manual replacement and extension without duplicating normalized queries", () => {
     const { discovery } = repositories();
     const replace = new AdaptiveQuerySelector(discovery, { mode: "manual_replace", manualQueries: ["  한국 뷰티 리뷰  ", "한국  뷰티 리뷰"] }, () => NOW);
@@ -87,6 +114,61 @@ describe("H4.3 autonomous discovery", () => {
     expect(second?.category).not.toBe(first?.category);
   });
 
+  it("restricts automatic taxonomy and learned queries to the user-selected category", () => {
+    const { discovery } = repositories();
+    discovery.ensureQueries(generateTaxonomyQueries(), NOW.toISOString());
+    discovery.upsertLearnedTerms(
+      ["푸드 레시피 직장인"],
+      "푸드",
+      {
+        channelId: `UC${"f".repeat(22)}`,
+        publicUrl: `https://www.youtube.com/channel/UC${"f".repeat(22)}`,
+        evidence: ["채널 설명: 레시피"],
+      },
+      NOW.toISOString(),
+    );
+    discovery.upsertLearnedTerms(
+      ["라이프스타일 일상 직장인"],
+      "라이프스타일",
+      {
+        channelId: `UC${"l".repeat(22)}`,
+        publicUrl: `https://www.youtube.com/channel/UC${"l".repeat(22)}`,
+        evidence: ["채널 설명: 일상"],
+      },
+      NOW.toISOString(),
+    );
+    const selector = new AdaptiveQuerySelector(
+      discovery,
+      { mode: "automatic", manualQueries: [], preferredCategory: "푸드" },
+      () => NOW,
+    );
+    selector.initialize();
+
+    const selected = Array.from({ length: 8 }, () => selector.next(0)).filter((query) => query !== null);
+    expect(selected.length).toBeGreaterThan(0);
+    expect(selected.every((query) => query.category === "푸드")).toBe(true);
+    expect(discovery.listQueries().some((query) => query.category === "라이프스타일")).toBe(true);
+  });
+
+  it("keeps manual extension inside the user-selected category", () => {
+    const { discovery } = repositories();
+    const selector = new AdaptiveQuerySelector(
+      discovery,
+      {
+        mode: "manual_extend",
+        manualQueries: ["직장인 간편 도시락", "라이프스타일 일상 브이로그"],
+        preferredCategory: "푸드",
+      },
+      () => NOW,
+    );
+    selector.initialize();
+
+    const states = discovery.listQueries();
+    expect(states.some((query) => query.query === "직장인 간편 도시락" && query.category === "푸드")).toBe(true);
+    expect(states.some((query) => query.category === "라이프스타일")).toBe(false);
+    expect(states.every((query) => query.category === "푸드")).toBe(true);
+  });
+
   it("persists continuation and query counters for a reconstructed repository", () => {
     const { database, discovery } = repositories();
     const query = generateTaxonomyQueries(["narrow"])[0];
@@ -113,18 +195,29 @@ describe("H4.3 autonomous discovery", () => {
     const phrases = extractSafeDiscoveryPhrases([
       "오늘은 직장인 뷰티 루틴과 스킨케어 리뷰를 소개합니다 creator@example.com https://example.invalid",
       "@fictionalCreator 주말 메이크업 튜토리얼",
-    ], "가상 크리에이터");
+    ], "가상 크리에이터", "뷰티");
     expect(phrases).toEqual(expect.arrayContaining([expect.stringContaining("뷰티") as string]));
     expect(phrases.join(" ")).not.toContain("example");
     expect(phrases.join(" ")).not.toContain("가상 크리에이터");
     expect(phrases.every(isSafeDiscoveryQuery)).toBe(true);
+    expect(extractSafeDiscoveryPhrases(["당했다 성수 브이로그"], "가상 푸드 채널", "푸드")).toEqual([]);
   });
 
   it("keeps learned terms exploratory until sampled, then proves or cools them by performance", () => {
     const { discovery } = repositories();
-    discovery.upsertLearnedTerms(["직장인 뷰티 루틴", "여행 브이로그 주말"], "뷰티", NOW.toISOString());
+    const source = {
+      channelId: `UC${"s".repeat(22)}`,
+      publicUrl: `https://www.youtube.com/channel/UC${"s".repeat(22)}`,
+      evidence: ["채널 설명: 뷰티"],
+    };
+    discovery.upsertLearnedTerms(["직장인 뷰티 루틴", "여행 브이로그 주말"], "뷰티", source, NOW.toISOString());
     const terms = discovery.listLearnedTerms();
     expect(terms.every((term) => term.state === "exploratory" && term.sampleCount === 0)).toBe(true);
+    expect(terms[0]).toMatchObject({
+      sourceChannelId: source.channelId,
+      sourcePublicUrl: source.publicUrl,
+      sourceEvidence: source.evidence,
+    });
     discovery.recordLearnedTermOutcome("직장인 뷰티 루틴", { candidatesScanned: 10, recommended: 3, newIdentities: 9 }, NOW.toISOString());
     discovery.recordLearnedTermOutcome("여행 브이로그 주말", { candidatesScanned: 10, duplicates: 8, failed: 1 }, NOW.toISOString());
     expect(discovery.listLearnedTerms().find((term) => term.normalizedKey === "직장인 뷰티 루틴")?.state).toBe("proven");

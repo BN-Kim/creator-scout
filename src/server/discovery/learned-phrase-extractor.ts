@@ -2,10 +2,15 @@ import { discoveryTaxonomy, isSafeDiscoveryQuery, normalizeDiscoveryQuery } from
 
 const blockedTokens = new Set(["공식", "채널", "유튜브", "구독", "좋아요", ...discoveryTaxonomy.prohibitedTerms]);
 
-export function extractSafeDiscoveryPhrases(texts: readonly string[], channelName: string): string[] {
+export function extractSafeDiscoveryPhrases(
+  texts: readonly string[],
+  channelName: string,
+  verifiedCategory: string | null = null,
+): string[] {
   const blockedNameTokens = new Set(normalizeDiscoveryQuery(channelName).split(" ").filter(Boolean));
-  const approvedAnchors = [...discoveryTaxonomy.categories.flatMap((category) => category.terms), ...discoveryTaxonomy.formats, ...discoveryTaxonomy.contexts]
-    .map(normalizeDiscoveryQuery);
+  const category = discoveryTaxonomy.categories.find((item) => item.name === verifiedCategory);
+  if (!category) return [];
+  const requiredCategoryAnchors = category.terms.map(normalizeDiscoveryQuery);
   const phrases = new Set<string>();
   for (const text of texts) {
     const sanitized = text.replace(/https?:\/\/\S+|\S+@\S+\.\S+|@[\w.-]+/gi, " ").normalize("NFKC");
@@ -16,7 +21,7 @@ export function extractSafeDiscoveryPhrases(texts: readonly string[], channelNam
         const normalizedTokens = slice.map(normalizeDiscoveryQuery);
         const phrase = slice.join(" ");
         if (normalizedTokens.some((token) => blockedTokens.has(token) || blockedNameTokens.has(token))) continue;
-        if (!approvedAnchors.some((anchor) => normalizeDiscoveryQuery(phrase).includes(anchor))) continue;
+        if (!requiredCategoryAnchors.some((anchor) => normalizeDiscoveryQuery(phrase).includes(anchor))) continue;
         if (isSafeDiscoveryQuery(phrase)) phrases.add(phrase);
       }
     }

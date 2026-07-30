@@ -1,7 +1,7 @@
 import { AdaptiveQuerySelector } from "@/server/discovery/adaptive-query-selector";
 import type { DiscoveryStateRepository } from "@/server/discovery/discovery-state-repository";
 import { InMemoryDiscoveryStateRepository } from "@/server/discovery/in-memory-discovery-state-repository";
-import type { DiscoveryMode, DiscoveryQueryDelta } from "@/server/discovery/discovery-types";
+import type { DiscoveryMode, DiscoveryQueryDelta, DiscoveryQueryState } from "@/server/discovery/discovery-types";
 import { createManualQueries, isApprovedCategory } from "@/server/discovery/discovery-taxonomy";
 import { createHistoryRecord } from "@/server/history/history-record";
 import type { HistoryRepository } from "@/server/history/history-repository";
@@ -9,7 +9,7 @@ import type { RecruitmentEvidenceProvider } from "@/server/providers/recruitment
 import { toStableHistoryLookupIdentity } from "@/server/providers/youtube/history-prechecked-evidence";
 import type { YouTubeCandidateDiscoveryProvider, YouTubeEvidenceProvider, YouTubeIdentityProvider } from "@/server/providers/youtube/provider-contracts";
 import { YouTubeProviderError } from "@/server/providers/youtube/provider-error";
-import type { DiscoveredYouTubeCandidate, IdentityResolutionResult } from "@/server/providers/youtube/provider-types";
+import type { CandidateDiscoveryResult, DiscoveredYouTubeCandidate, IdentityResolutionResult } from "@/server/providers/youtube/provider-types";
 import { createVerificationEvidence } from "@/server/providers/youtube/verification-evidence";
 import { youtubeEvidenceCollectionPolicy } from "@/config/youtube-evidence";
 import { evaluateCreator } from "@/server/rules/evaluate-creator";
@@ -20,6 +20,17 @@ import type {
   AutomaticScoutingSafetyLimits, AutomaticScoutingStatistics, AutomaticScoutingStopReason,
 } from "@/server/scouting/automatic-scouting-types";
 import type { CreatorInput, EvaluatedCreator, RecruitmentEvidence } from "@/types/domain";
+
+export const maximumCandidatesPerQueryTurn = 10;
+export const maximumCandidatesPerDiscoveryPage = 50;
+
+interface PendingDiscoveryPage {
+  queryState: DiscoveryQueryState;
+  candidates: DiscoveredYouTubeCandidate[];
+  nextPageToken: string | null;
+  offset: number;
+  delta: DiscoveryQueryDelta;
+}
 
 export interface AutomaticScoutingPipelineDependencies {
   discoveryProvider: YouTubeCandidateDiscoveryProvider;
@@ -61,6 +72,7 @@ export class AutomaticScoutingPipeline {
     const failures: AutomaticScoutingFailure[] = [];
     const sameRunChannelIds = new Set<string>();
     const attemptedQueryKeys = new Set<string>();
+    const pendingPages = new Map<string, PendingDiscoveryPage>();
     let providerFailures = 0;
     let stopReason: AutomaticScoutingStopReason = "source_exhausted";
 
@@ -68,43 +80,56 @@ export class AutomaticScoutingPipeline {
       const safetyReason = safetyStopReason(statistics, limits, providerFailures, this.now().getTime() - startedAtDate.getTime());
       if (safetyReason) { stopReason = safetyReason; break; }
 
-      const queryState = selector.next(statistics.recommendationsFilled);
-      if (!queryState) { stopReason = "source_exhausted"; break; }
+      const selectedQueryState = selector.next(statistics.recommendationsFilled);
+      if (!selectedQueryState) { stopReason = "source_exhausted"; break; }
+      let pendingPage = pendingPages.get(selectedQueryState.normalizedKey);
+      const queryState = pendingPage?.queryState ?? selectedQueryState;
       attemptedQueryKeys.add(queryState.normalizedKey);
       const remainingCandidateSlots = limits.maxScannedCandidates - statistics.discovered;
-      const batchSize = Math.min(50, remainingCandidateSlots);
-      const delta: DiscoveryQueryDelta = {};
+      if (!pendingPage) {
+        const providerPageSize = Math.min(maximumCandidatesPerDiscoveryPage, remainingCandidateSlots);
+        let page: CandidateDiscoveryResult;
+        try {
+          page = await withinRunDeadline(
+            () => this.dependencies.discoveryProvider.discoverCandidates({
+              query: queryState.query,
+              maxResults: providerPageSize,
+              ...(queryState.continuationToken ? { pageToken: queryState.continuationToken } : {}),
+            }),
+            deadlineAtMs,
+            this.now,
+          );
+          statistics.pagesScanned += 1;
+        } catch (error: unknown) {
+          if (error instanceof AutomaticScoutingDeadlineReachedError) {
+            stopReason = "time_limit_reached";
+            break;
+          }
+          failures.push(toFailure(error, "discovery", null));
+          statistics.failed += 1;
+          providerFailures += 1;
+          stateRepository.setCooldown(queryState.normalizedKey, new Date(this.now().getTime() + 5 * 60_000).toISOString(), false, this.now().toISOString());
+          if (error instanceof YouTubeProviderError && isRunWideDiscoveryFailure(error.category)) {
+            stopReason = "provider_failure_limit_reached";
+            break;
+          }
+          if (providerFailures >= limits.maxProviderFailures) { stopReason = "provider_failure_limit_reached"; break; }
+          continue;
+        }
 
-      let page;
-      try {
-        page = await withinRunDeadline(
-          () => this.dependencies.discoveryProvider.discoverCandidates({
-            query: queryState.query,
-            maxResults: batchSize,
-            ...(queryState.continuationToken ? { pageToken: queryState.continuationToken } : {}),
-          }),
-          deadlineAtMs,
-          this.now,
-        );
-        statistics.pagesScanned += 1;
-      } catch (error: unknown) {
-        if (error instanceof AutomaticScoutingDeadlineReachedError) {
-          stopReason = "time_limit_reached";
-          break;
-        }
-        failures.push(toFailure(error, "discovery", null));
-        statistics.failed += 1;
-        providerFailures += 1;
-        stateRepository.setCooldown(queryState.normalizedKey, new Date(this.now().getTime() + 5 * 60_000).toISOString(), false, this.now().toISOString());
-        if (error instanceof YouTubeProviderError && isRunWideDiscoveryFailure(error.category)) {
-          stopReason = "provider_failure_limit_reached";
-          break;
-        }
-        if (providerFailures >= limits.maxProviderFailures) { stopReason = "provider_failure_limit_reached"; break; }
-        continue;
+        pendingPage = {
+          queryState,
+          candidates: page.candidates.slice(0, providerPageSize),
+          nextPageToken: page.nextPageToken,
+          offset: 0,
+          delta: {},
+        };
+        pendingPages.set(queryState.normalizedKey, pendingPage);
       }
 
-      const candidates = page.candidates.slice(0, batchSize);
+      const turnSize = Math.min(maximumCandidatesPerQueryTurn, remainingCandidateSlots);
+      const candidates = pendingPage.candidates.slice(pendingPage.offset, pendingPage.offset + turnSize);
+      const delta = pendingPage.delta;
       let processedCandidates = 0;
       let pageInterrupted = false;
       let pageStopReason: AutomaticScoutingStopReason | null = null;
@@ -260,25 +285,61 @@ export class AutomaticScoutingPipeline {
         if (evaluatedCreator.evidence.recruitmentEvidence.koreanLanguageActivity.state === "likely") delta.koreanActivityMatches = (delta.koreanActivityMatches ?? 0) + 1;
         if (evaluatedCreator.evidence.emailClassification === "personal" && evaluatedCreator.evidence.emailVerificationState === "confirmed") delta.personalContacts = (delta.personalContacts ?? 0) + 1;
         statistics.recommendationsFilled = statistics.recommended;
-        if (evaluatedCreator.decision === "recommended" && recruitmentEvidence?.exploratoryDiscoveryPhrases?.length) {
-          stateRepository.upsertLearnedTerms(recruitmentEvidence.exploratoryDiscoveryPhrases, queryState.category, this.now().toISOString());
+        if (
+          evaluatedCreator.decision === "recommended"
+          && evaluatedCreator.evidence.categoryFit === true
+          && recruitmentEvidence?.categoryEvidence.verificationState === "confirmed"
+          && recruitmentEvidence.exploratoryDiscoveryPhrases?.length
+        ) {
+          stateRepository.upsertLearnedTerms(
+            recruitmentEvidence.exploratoryDiscoveryPhrases,
+            evaluatedCreator.identity.category,
+            {
+              channelId,
+              publicUrl: evaluatedCreator.identity.canonicalChannelUrl ?? `https://www.youtube.com/channel/${channelId}`,
+              evidence: recruitmentEvidence.categoryEvidence.matchedSignals,
+            },
+            this.now().toISOString(),
+          );
         }
       }
 
-      const pageFullyProcessed = !pageInterrupted && processedCandidates === candidates.length;
-      const persistedContinuation = pageFullyProcessed ? page.nextPageToken : queryState.continuationToken;
-      const exhausted = pageFullyProcessed && (!page.nextPageToken || page.nextPageToken === queryState.continuationToken);
-      stateRepository.recordPage(queryState.normalizedKey, persistedContinuation, exhausted, delta, this.now().toISOString());
-      if (exhausted) stateRepository.setCooldown(
-        queryState.normalizedKey,
-        new Date(this.now().getTime() + exhaustedDiscoveryQueryCooldownMs).toISOString(),
-        true,
-        this.now().toISOString(),
-      );
-      if (queryState.origin === "learned") stateRepository.recordLearnedTermOutcome(queryState.normalizedKey, delta, this.now().toISOString());
-      if (!exhausted) selector.allowContinuation({ ...queryState, continuationToken: page.nextPageToken });
+      pendingPage.offset += processedCandidates;
+      const pageFullyProcessed = !pageInterrupted && pendingPage.offset >= pendingPage.candidates.length;
+      if (pageFullyProcessed) {
+        const exhausted = !pendingPage.nextPageToken || pendingPage.nextPageToken === queryState.continuationToken;
+        stateRepository.recordPage(queryState.normalizedKey, pendingPage.nextPageToken, exhausted, delta, this.now().toISOString());
+        if (exhausted) stateRepository.setCooldown(
+          queryState.normalizedKey,
+          new Date(this.now().getTime() + exhaustedDiscoveryQueryCooldownMs).toISOString(),
+          true,
+          this.now().toISOString(),
+        );
+        if (queryState.origin === "learned") stateRepository.recordLearnedTermOutcome(queryState.normalizedKey, delta, this.now().toISOString());
+        pendingPages.delete(queryState.normalizedKey);
+        if (!exhausted) selector.allowContinuation({ ...queryState, continuationToken: pendingPage.nextPageToken });
+      } else if (!pageStopReason) {
+        selector.allowContinuation(queryState);
+      }
       if (pageStopReason) { stopReason = pageStopReason; break; }
       if (statistics.recommended >= request.targetRecommendedCount) { stopReason = "target_reached"; break; }
+    }
+
+    for (const pendingPage of pendingPages.values()) {
+      stateRepository.recordPage(
+        pendingPage.queryState.normalizedKey,
+        pendingPage.queryState.continuationToken,
+        false,
+        pendingPage.delta,
+        this.now().toISOString(),
+      );
+      if (pendingPage.queryState.origin === "learned") {
+        stateRepository.recordLearnedTermOutcome(
+          pendingPage.queryState.normalizedKey,
+          pendingPage.delta,
+          this.now().toISOString(),
+        );
+      }
     }
 
     statistics.stopReason = stopReason;
