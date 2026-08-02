@@ -1,15 +1,17 @@
 import { AdaptiveQuerySelector } from "@/server/discovery/adaptive-query-selector";
+import { isPermanentHardExclusionReason, recommendationRuleVersion } from "@/config/recommendation-rules";
 import type { DiscoveryStateRepository } from "@/server/discovery/discovery-state-repository";
 import { InMemoryDiscoveryStateRepository } from "@/server/discovery/in-memory-discovery-state-repository";
 import type { DiscoveryMode, DiscoveryQueryDelta, DiscoveryQueryState } from "@/server/discovery/discovery-types";
 import { createManualQueries, isApprovedCategory } from "@/server/discovery/discovery-taxonomy";
 import { createHistoryRecord } from "@/server/history/history-record";
+import { shouldReevaluateHistoryRecord } from "@/server/history/history-recheck";
 import type { HistoryRepository } from "@/server/history/history-repository";
 import type { RecruitmentEvidenceProvider } from "@/server/providers/recruitment/provider-contract";
 import { toStableHistoryLookupIdentity } from "@/server/providers/youtube/history-prechecked-evidence";
 import type { YouTubeCandidateDiscoveryProvider, YouTubeEvidenceProvider, YouTubeIdentityProvider } from "@/server/providers/youtube/provider-contracts";
 import { YouTubeProviderError } from "@/server/providers/youtube/provider-error";
-import type { CandidateDiscoveryResult, DiscoveredYouTubeCandidate, IdentityResolutionResult } from "@/server/providers/youtube/provider-types";
+import type { CandidateDiscoveryResult, CandidateDiscoveryStrategy, DiscoveredYouTubeCandidate, IdentityResolutionResult } from "@/server/providers/youtube/provider-types";
 import { createVerificationEvidence } from "@/server/providers/youtube/verification-evidence";
 import { youtubeEvidenceCollectionPolicy } from "@/config/youtube-evidence";
 import { evaluateCreator } from "@/server/rules/evaluate-creator";
@@ -17,15 +19,17 @@ import { defaultAutomaticScoutingSafetyLimits, exhaustedDiscoveryQueryCooldownMs
 import { createCreatorInputFromYouTubeEvidence, type CreatorInputAssembler } from "@/server/scouting/creator-input-assembler";
 import type {
   AutomaticScoutingFailure, AutomaticScoutingFailureStage, AutomaticScoutingRunRequest, AutomaticScoutingRunResult,
-  AutomaticScoutingSafetyLimits, AutomaticScoutingStatistics, AutomaticScoutingStopReason,
+  AutomaticScoutingDecisionBreakdown, AutomaticScoutingDiagnostics, AutomaticScoutingSafetyLimits,
+  AutomaticScoutingStatistics, AutomaticScoutingStopReason,
 } from "@/server/scouting/automatic-scouting-types";
-import type { CreatorInput, EvaluatedCreator, RecruitmentEvidence } from "@/types/domain";
+import type { CreatorInput, EvaluatedCreator, RecommendationSettings, RecruitmentEvidence } from "@/types/domain";
 
 export const maximumCandidatesPerQueryTurn = 10;
 export const maximumCandidatesPerDiscoveryPage = 50;
 
 interface PendingDiscoveryPage {
   queryState: DiscoveryQueryState;
+  strategy: CandidateDiscoveryStrategy;
   candidates: DiscoveredYouTubeCandidate[];
   nextPageToken: string | null;
   offset: number;
@@ -67,6 +71,7 @@ export class AutomaticScoutingPipeline {
     selector.initialize();
 
     const statistics = createEmptyStatistics(request.targetRecommendedCount, mode);
+    const diagnostics = createEmptyDiagnostics();
     const results: EvaluatedCreator[] = [];
     const skips: AutomaticScoutingRunResult["skips"] = [];
     const failures: AutomaticScoutingFailure[] = [];
@@ -80,9 +85,23 @@ export class AutomaticScoutingPipeline {
       const safetyReason = safetyStopReason(statistics, limits, providerFailures, this.now().getTime() - startedAtDate.getTime());
       if (safetyReason) { stopReason = safetyReason; break; }
 
-      const selectedQueryState = selector.next(statistics.recommendationsFilled);
+      const selectedQueryState = selector.next({
+        recommendationsFilled: statistics.recommendationsFilled,
+        evaluated: statistics.evaluated,
+      });
       if (!selectedQueryState) { stopReason = "source_exhausted"; break; }
       let pendingPage = pendingPages.get(selectedQueryState.normalizedKey);
+      const discoveryStrategy: CandidateDiscoveryStrategy = pendingPage?.strategy
+        ?? (statistics.pagesScanned % 2 === 0 ? "recent_video" : "channel");
+      diagnostics.querySequence.push({
+        order: diagnostics.querySequence.length + 1,
+        query: selectedQueryState.query,
+        normalizedKey: selectedQueryState.normalizedKey,
+        category: selectedQueryState.category,
+        scope: selectedQueryState.scope,
+        origin: selectedQueryState.origin,
+        strategy: discoveryStrategy,
+      });
       const queryState = pendingPage?.queryState ?? selectedQueryState;
       attemptedQueryKeys.add(queryState.normalizedKey);
       const remainingCandidateSlots = limits.maxScannedCandidates - statistics.discovered;
@@ -94,6 +113,10 @@ export class AutomaticScoutingPipeline {
             () => this.dependencies.discoveryProvider.discoverCandidates({
               query: queryState.query,
               maxResults: providerPageSize,
+              strategy: discoveryStrategy,
+              publishedAfter: new Date(
+                this.now().getTime() - request.settings.maximumDaysSinceLatestUpload * 86_400_000,
+              ).toISOString(),
               ...(queryState.continuationToken ? { pageToken: queryState.continuationToken } : {}),
             }),
             deadlineAtMs,
@@ -119,6 +142,7 @@ export class AutomaticScoutingPipeline {
 
         pendingPage = {
           queryState,
+          strategy: discoveryStrategy,
           candidates: page.candidates.slice(0, providerPageSize),
           nextPageToken: page.nextPageToken,
           offset: 0,
@@ -177,11 +201,18 @@ export class AutomaticScoutingPipeline {
           statistics.failed += 1; delta.failed = (delta.failed ?? 0) + 1;
           continue;
         }
-        if (historyMatch) {
+        const reevaluatingHistory = historyMatch
+          ? shouldReevaluateHistoryRecord(historyMatch, recommendationRuleVersion, this.now())
+          : false;
+        if (historyMatch && !reevaluatingHistory) {
           statistics.priorHistorySkipped += 1; delta.duplicates = (delta.duplicates ?? 0) + 1;
+          if (historyMatch.decisionSource === "manual" || historyMatch.manualCorrection) {
+            statistics.manualOverrideSkipped += 1;
+          }
           skips.push({ channelId, reason: "prior_history", matchedHistoryRecordId: historyMatch.id });
           continue;
         }
+        if (reevaluatingHistory) statistics.historyReevaluated += 1;
         delta.newIdentities = (delta.newIdentities ?? 0) + 1;
 
         let collectedEvidence;
@@ -271,7 +302,11 @@ export class AutomaticScoutingPipeline {
         }
 
         try {
-          this.dependencies.historyRepository.addOrUpdate(createHistoryRecord(evaluatedCreator, request.runId));
+          this.dependencies.historyRepository.addOrUpdate(createHistoryRecord(
+            evaluatedCreator,
+            request.runId,
+            historyMatch?.createdAt,
+          ));
         } catch (error: unknown) {
           failures.push(toFailure(error, "persistence", channelId));
           statistics.failed += 1; delta.failed = (delta.failed ?? 0) + 1;
@@ -285,8 +320,16 @@ export class AutomaticScoutingPipeline {
         if (evaluatedCreator.evidence.recruitmentEvidence.koreanLanguageActivity.state === "likely") delta.koreanActivityMatches = (delta.koreanActivityMatches ?? 0) + 1;
         if (evaluatedCreator.evidence.emailClassification === "personal" && evaluatedCreator.evidence.emailVerificationState === "confirmed") delta.personalContacts = (delta.personalContacts ?? 0) + 1;
         statistics.recommendationsFilled = statistics.recommended;
+        recordDiagnostics(
+          diagnostics,
+          evaluatedCreator,
+          queryState.normalizedKey,
+          request.settings.recommendationScoreThreshold,
+        );
         if (
-          evaluatedCreator.decision === "recommended"
+          (evaluatedCreator.decision === "recommended"
+            || (evaluatedCreator.decision === "hold"
+              && (evaluatedCreator.fitScore ?? -1) >= request.settings.recommendationScoreThreshold))
           && evaluatedCreator.evidence.categoryFit === true
           && recruitmentEvidence?.categoryEvidence.verificationState === "confirmed"
           && recruitmentEvidence.exploratoryDiscoveryPhrases?.length
@@ -305,17 +348,22 @@ export class AutomaticScoutingPipeline {
       }
 
       pendingPage.offset += processedCandidates;
+      const progressRecordedAt = this.now().toISOString();
+      stateRepository.recordProgress(queryState.normalizedKey, delta, progressRecordedAt);
+      if (queryState.origin === "learned") {
+        stateRepository.recordLearnedTermOutcome(queryState.normalizedKey, delta, progressRecordedAt);
+      }
+      pendingPage.delta = {};
       const pageFullyProcessed = !pageInterrupted && pendingPage.offset >= pendingPage.candidates.length;
       if (pageFullyProcessed) {
         const exhausted = !pendingPage.nextPageToken || pendingPage.nextPageToken === queryState.continuationToken;
-        stateRepository.recordPage(queryState.normalizedKey, pendingPage.nextPageToken, exhausted, delta, this.now().toISOString());
+        stateRepository.recordPage(queryState.normalizedKey, pendingPage.nextPageToken, exhausted, {}, this.now().toISOString());
         if (exhausted) stateRepository.setCooldown(
           queryState.normalizedKey,
           new Date(this.now().getTime() + exhaustedDiscoveryQueryCooldownMs).toISOString(),
           true,
           this.now().toISOString(),
         );
-        if (queryState.origin === "learned") stateRepository.recordLearnedTermOutcome(queryState.normalizedKey, delta, this.now().toISOString());
         pendingPages.delete(queryState.normalizedKey);
         if (!exhausted) selector.allowContinuation({ ...queryState, continuationToken: pendingPage.nextPageToken });
       } else if (!pageStopReason) {
@@ -330,16 +378,9 @@ export class AutomaticScoutingPipeline {
         pendingPage.queryState.normalizedKey,
         pendingPage.queryState.continuationToken,
         false,
-        pendingPage.delta,
+        {},
         this.now().toISOString(),
       );
-      if (pendingPage.queryState.origin === "learned") {
-        stateRepository.recordLearnedTermOutcome(
-          pendingPage.queryState.normalizedKey,
-          pendingPage.delta,
-          this.now().toISOString(),
-        );
-      }
     }
 
     statistics.stopReason = stopReason;
@@ -347,8 +388,21 @@ export class AutomaticScoutingPipeline {
     statistics.queriesAttempted = attemptedQueryKeys.size;
     return {
       runId: request.runId,
+      runKind: "discovery",
+      sourceRunId: null,
       status: failures.length > 0 ? "completed_with_failures" : "completed",
       startedAt: startedAtDate.toISOString(), completedAt: this.now().toISOString(), statistics, results, skips, failures,
+      requestSnapshot: {
+        discoveryMode: mode,
+        manualQueries: [...manualQueries],
+        preferredCategory: request.preferredCategory ?? request.category ?? null,
+        targetRecommendedCount: request.targetRecommendedCount,
+        recentVideoLimit: request.recentVideoLimit ?? null,
+        safetyLimits: { ...limits },
+        settings: cloneSettings(request.settings),
+        ruleVersion: recommendationRuleVersion,
+      },
+      diagnostics,
     };
   }
 
@@ -427,7 +481,57 @@ function createEmptyStatistics(targetRecommendedCount: number, discoveryMode: Di
   return {
     discoveryMode, queriesAttempted: 0, pagesScanned: 0, targetRecommendedCount, recommendationsFilled: 0,
     discovered: 0, priorHistorySkipped: 0, sameRunDuplicatesSkipped: 0, evaluated: 0,
+    historyReevaluated: 0, manualOverrideSkipped: 0,
     recommended: 0, hold: 0, excluded: 0, failed: 0, stopReason: "source_exhausted",
+  };
+}
+
+function createEmptyDiagnostics(): AutomaticScoutingDiagnostics {
+  return {
+    funnel: createEmptyDecisionBreakdown(),
+    querySequence: [],
+    byCategory: {},
+    byQuery: {},
+  };
+}
+
+function createEmptyDecisionBreakdown(): AutomaticScoutingDecisionBreakdown {
+  return {
+    evaluated: 0,
+    staticEligible: 0,
+    scoreQualified: 0,
+    contactReady: 0,
+    recommended: 0,
+    hold: 0,
+    excluded: 0,
+  };
+}
+
+function recordDiagnostics(
+  diagnostics: AutomaticScoutingDiagnostics,
+  creator: EvaluatedCreator,
+  queryKey: string,
+  recommendationThreshold: number,
+): void {
+  const category = creator.identity.category || "미분류";
+  diagnostics.byCategory[category] ??= createEmptyDecisionBreakdown();
+  diagnostics.byQuery[queryKey] ??= createEmptyDecisionBreakdown();
+  for (const breakdown of [diagnostics.funnel, diagnostics.byCategory[category], diagnostics.byQuery[queryKey]]) {
+    breakdown.evaluated += 1;
+    if (!creator.reasonCodes.some(isPermanentHardExclusionReason)) breakdown.staticEligible += 1;
+    if ((creator.fitScore ?? -1) >= recommendationThreshold) breakdown.scoreQualified += 1;
+    if (creator.contactReady) breakdown.contactReady += 1;
+    breakdown[creator.decision] += 1;
+  }
+}
+
+function cloneSettings(settings: RecommendationSettings): RecommendationSettings {
+  return {
+    ...settings,
+    allowedCategories: [...settings.allowedCategories],
+    blockedChannelTypes: [...settings.blockedChannelTypes],
+    excludedEmailClassifications: [...settings.excludedEmailClassifications],
+    scoreWeights: { ...settings.scoreWeights },
   };
 }
 

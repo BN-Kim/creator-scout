@@ -4,7 +4,7 @@ import type { YouTubeProviderConfig } from "@/server/providers/youtube/provider-
 import { YouTubeProviderError } from "@/server/providers/youtube/provider-error";
 import type {
   CandidateDiscoveryRequest, CandidateDiscoveryResult, ChannelEvidenceResult, IdentityResolutionResult,
-  NormalizedVideoEvidence, RecentVideoEvidenceResult, RecentVideoRequest, ResolvedYouTubeIdentity,
+  CandidateDiscoveryStrategy, NormalizedVideoEvidence, RecentVideoEvidenceResult, RecentVideoRequest, ResolvedYouTubeIdentity,
   YouTubeIdentityInput,
 } from "@/server/providers/youtube/provider-types";
 import { YouTubeApiClient, type YouTubeApiClientDependencies } from "@/server/providers/youtube/youtube-api-client";
@@ -21,27 +21,48 @@ export class YouTubeDataApiProvider implements YouTubeCandidateDiscoveryProvider
     if (!query || !Number.isInteger(request.maxResults) || request.maxResults < 1 || request.maxResults > 50) {
       throw providerError("Candidate discovery input is invalid.", "discover_candidates", "invalid_input");
     }
-    const parameters: Record<string, string> = {
-      part: "snippet", type: "channel", q: query, maxResults: String(request.maxResults),
-    };
-    if (request.pageToken) parameters.pageToken = request.pageToken;
+    const token = decodeDiscoveryPageToken(request.pageToken);
+    const strategy = token?.strategy ?? request.strategy ?? "channel";
+    if (strategy === "recent_video" && (!request.publishedAfter || Number.isNaN(Date.parse(request.publishedAfter)))) {
+      throw providerError("Recent-video discovery needs a valid publishedAfter value.", "discover_candidates", "invalid_input");
+    }
+    const parameters: Record<string, string> = strategy === "recent_video"
+      ? {
+          part: "snippet", type: "video", q: query, maxResults: String(request.maxResults),
+          publishedAfter: new Date(request.publishedAfter!).toISOString(), order: "date",
+        }
+      : { part: "snippet", type: "channel", q: query, maxResults: String(request.maxResults) };
+    if (token?.value ?? request.pageToken) parameters.pageToken = token?.value ?? request.pageToken!;
     const raw = await this.client.get("discover_candidates", "search", parameters);
     const response = requireRecord(raw, "discover_candidates");
     const items = optionalArray(response.items);
+    const seen = new Set<string>();
     const candidates = items.flatMap((item) => {
       const record = optionalRecord(item);
       const id = optionalRecord(record?.id);
-      const channelId = stringValue(id?.channelId);
-      if (!channelId || !isStableYouTubeChannelId(channelId)) return [];
       const snippet = optionalRecord(record?.snippet);
+      const channelId = strategy === "recent_video"
+        ? stringValue(snippet?.channelId)
+        : stringValue(id?.channelId);
+      if (!channelId || !isStableYouTubeChannelId(channelId) || seen.has(channelId)) return [];
+      seen.add(channelId);
       return [{
         channelId,
-        discoveredTitle: stringValue(snippet?.title),
+        discoveredTitle: strategy === "recent_video"
+          ? stringValue(snippet?.channelTitle)
+          : stringValue(snippet?.title),
         identityInput: { kind: "channel_id" as const, value: channelId },
         sourceQuery: query,
       }];
     });
-    return { candidates, nextPageToken: stringValue(response.nextPageToken), raw };
+    const rawNextPageToken = stringValue(response.nextPageToken);
+    return {
+      candidates,
+      nextPageToken: rawNextPageToken
+        ? encodeDiscoveryPageToken(strategy, rawNextPageToken)
+        : null,
+      raw,
+    };
   }
 
   async resolveIdentity(input: YouTubeIdentityInput): Promise<IdentityResolutionResult> {
@@ -155,6 +176,22 @@ export class YouTubeDataApiProvider implements YouTubeCandidateDiscoveryProvider
     const unavailable = videoIds.filter((videoId) => !normalizedById.has(videoId));
     return createRecentVideoResult(videos, unavailable, { playlist: rawPlaylist, videos: rawVideos });
   }
+}
+
+const discoveryTokenSeparator = ":";
+
+function encodeDiscoveryPageToken(strategy: CandidateDiscoveryStrategy, value: string): string {
+  return `${strategy}${discoveryTokenSeparator}${value}`;
+}
+
+function decodeDiscoveryPageToken(value: string | undefined): { strategy: CandidateDiscoveryStrategy; value: string } | null {
+  if (!value) return null;
+  const separatorIndex = value.indexOf(discoveryTokenSeparator);
+  if (separatorIndex < 0) return null;
+  const strategy = value.slice(0, separatorIndex);
+  const token = value.slice(separatorIndex + 1);
+  if ((strategy !== "channel" && strategy !== "recent_video") || !token) return null;
+  return { strategy, value: token };
 }
 
 function createRecentVideoResult(videos: NormalizedVideoEvidence[], unavailableVideoIds: string[], raw: unknown): RecentVideoEvidenceResult {

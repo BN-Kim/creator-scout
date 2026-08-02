@@ -11,8 +11,12 @@ export function validateNewRun(input: NewRunInput): ValidationErrors {
     !Number.isInteger(input.maximumDaysSinceLatestUpload)
     || input.maximumDaysSinceLatestUpload < maximumDaysSinceLatestUploadRange.minimum
     || input.maximumDaysSinceLatestUpload > maximumDaysSinceLatestUploadRange.maximum
-  ) errors.maximumDaysSinceLatestUpload = "7~60일 사이의 정수를 입력해 주세요.";
+  ) errors.maximumDaysSinceLatestUpload = "7~90일 사이의 정수를 입력해 주세요.";
   if (input.minimumRecentAverageViews < 0) errors.minimumRecentAverageViews = "0 이상의 값을 입력해 주세요.";
-  if (!Number.isInteger(input.minimumRecentVideoCount) || input.minimumRecentVideoCount < 2) errors.minimumRecentVideoCount = "2 이상의 정수를 입력해 주세요.";
+  if (input.minimumRecentMedianViews < 0) errors.minimumRecentMedianViews = "0 이상의 값을 입력해 주세요.";
+  if (!Number.isInteger(input.minimumRecentVideoCount) || input.minimumRecentVideoCount < 1) errors.minimumRecentVideoCount = "1 이상의 정수를 입력해 주세요.";
+  if (!Number.isInteger(input.minimumSubscriberCount) || input.minimumSubscriberCount < 0) errors.minimumSubscriberCount = "0 이상의 정수를 입력해 주세요.";
+  if (!Number.isInteger(input.maximumSubscriberCount) || input.maximumSubscriberCount < 1) errors.maximumSubscriberCount = "1 이상의 정수를 입력해 주세요.";
+  if (input.minimumSubscriberCount > input.maximumSubscriberCount) errors.minimumSubscriberCount = "최소 구독자 수는 최대 구독자 수 이하여야 합니다.";
   return errors;
 }

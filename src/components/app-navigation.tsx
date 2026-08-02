@@ -9,6 +9,7 @@ const navItems = [
   { href: "/runs/new", label: "스카우트 실행", icon: "plus" as const },
   { href: "/runs", label: "스카우트 기록", icon: "runs" as const },
   { href: "/history", label: "크리에이터 히스토리", icon: "history" as const },
+  { href: "/insights", label: "추천 진단", icon: "history" as const },
   { href: "/settings", label: "설정", icon: "settings" as const },
 ];
 

@@ -13,5 +13,6 @@
 - [`009-h6-sqlite-operations.md`](009-h6-sqlite-operations.md) — H6 단일 서버 예약·잠금·복구 경계
 - [`010-h7-production-operating-boundary.md`](010-h7-production-operating-boundary.md) — H7 단일 호스트 운영·백업·접근 제어 기준
 - [`011-official-youtube-data-api-only.md`](011-official-youtube-data-api-only.md) — 공식 YouTube Data API v3 전용 수집과 최근 기간 지표 정의
+- [`012-marketing-fit-scoring-and-learning-loop.md`](012-marketing-fit-scoring-and-learning-loop.md) — 점수 기반 판정, 동적 재평가, 혼합 발견, 수동 감사와 성과 학습 기반
 
 결정 변경은 [`product-rules.md`](../product-rules.md), 계약 테스트와 현재 상태 문서를 함께 갱신해야 합니다.

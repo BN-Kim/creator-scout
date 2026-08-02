@@ -1,5 +1,11 @@
 import type { SqliteDatabase } from "@/server/database/database";
-import type { AutomaticScoutingRunResult } from "@/server/scouting/automatic-scouting-types";
+import { isPermanentHardExclusionReason, legacyRecommendationRuleVersion } from "@/config/recommendation-rules";
+import type {
+  AutomaticScoutingDecisionBreakdown,
+  AutomaticScoutingDiagnostics,
+  AutomaticScoutingRunResult,
+} from "@/server/scouting/automatic-scouting-types";
+import type { EvaluatedCreator } from "@/types/domain";
 
 interface ResultRow {
   result_json: string;
@@ -38,6 +44,14 @@ export class SqliteAutomaticRunResultRepository {
     return rows.map((row) => row.run_id);
   }
 
+  list(limit = 100): AutomaticScoutingRunResult[] {
+    if (!Number.isInteger(limit) || limit < 1 || limit > 1_000) throw new Error("실행 결과 조회 한도가 올바르지 않습니다.");
+    const rows = this.database.prepare(
+      "SELECT run_id, result_json FROM automatic_scouting_run_results ORDER BY completed_at DESC LIMIT ?",
+    ).all(limit) as Array<{ run_id: string; result_json: string }>;
+    return rows.map((row) => parseStoredResult(row.result_json, row.run_id));
+  }
+
   resetForTests(): void {
     this.database.prepare("DELETE FROM automatic_scouting_run_results").run();
   }
@@ -53,7 +67,7 @@ function parseStoredResult(value: string, expectedRunId: string): AutomaticScout
   if (!isRunResultShape(parsed) || parsed.runId !== expectedRunId) {
     throw new Error("저장된 자동 스카우트 실행 결과 형식이 올바르지 않습니다.");
   }
-  return parsed;
+  return normalizeStoredResult(parsed);
 }
 
 function isRunResultShape(value: unknown): value is AutomaticScoutingRunResult {
@@ -69,4 +83,76 @@ function isRunResultShape(value: unknown): value is AutomaticScoutingRunResult {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function normalizeStoredResult(value: AutomaticScoutingRunResult): AutomaticScoutingRunResult {
+  const results = value.results.map(normalizeStoredCreator);
+  return {
+    ...value,
+    runKind: value.runKind ?? "discovery",
+    sourceRunId: value.sourceRunId ?? null,
+    statistics: {
+      ...value.statistics,
+      historyReevaluated: value.statistics.historyReevaluated ?? 0,
+      manualOverrideSkipped: value.statistics.manualOverrideSkipped ?? 0,
+    },
+    results,
+    requestSnapshot: value.requestSnapshot ?? null,
+    diagnostics: value.diagnostics ?? buildLegacyDiagnostics(results),
+  };
+}
+
+function normalizeStoredCreator(creator: EvaluatedCreator): EvaluatedCreator {
+  const legacy = creator as EvaluatedCreator & Partial<Pick<
+    EvaluatedCreator,
+    "fitScore" | "scoreComponents" | "contactReady" | "ruleVersion" | "recheckAt" | "appliedSettings" | "decisionSource"
+  >>;
+  return {
+    ...creator,
+    fitScore: legacy.fitScore ?? null,
+    scoreComponents: legacy.scoreComponents ?? null,
+    contactReady: legacy.contactReady ?? (
+      creator.evidence.emailClassification === "personal"
+      && creator.evidence.emailVerificationState === "confirmed"
+      && Boolean(creator.evidence.visibleEmail?.trim())
+    ),
+    ruleVersion: legacy.ruleVersion ?? legacyRecommendationRuleVersion,
+    recheckAt: legacy.recheckAt ?? null,
+    appliedSettings: legacy.appliedSettings ?? null,
+    decisionSource: legacy.decisionSource ?? (creator.manualCorrection ? "manual" : "system"),
+  };
+}
+
+function buildLegacyDiagnostics(results: EvaluatedCreator[]): AutomaticScoutingDiagnostics {
+  const diagnostics: AutomaticScoutingDiagnostics = {
+    funnel: emptyBreakdown(),
+    querySequence: [],
+    byCategory: {},
+    byQuery: {},
+  };
+  for (const creator of results) {
+    const category = creator.identity.category || "미분류";
+    diagnostics.byCategory[category] ??= emptyBreakdown();
+    for (const breakdown of [diagnostics.funnel, diagnostics.byCategory[category]]) {
+      breakdown.evaluated += 1;
+      if (!creator.reasonCodes.some(isPermanentHardExclusionReason)) breakdown.staticEligible += 1;
+      if (creator.fitScore !== null && creator.fitScore >= 70) breakdown.scoreQualified += 1;
+      if (creator.contactReady) breakdown.contactReady += 1;
+      breakdown[creator.decision] += 1;
+    }
+  }
+
+  return diagnostics;
+}
+
+function emptyBreakdown(): AutomaticScoutingDecisionBreakdown {
+  return {
+    evaluated: 0,
+    staticEligible: 0,
+    scoreQualified: 0,
+    contactReady: 0,
+    recommended: 0,
+    hold: 0,
+    excluded: 0,
+  };
 }

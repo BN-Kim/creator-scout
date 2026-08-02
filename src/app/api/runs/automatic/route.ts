@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { backgroundRunTargetThreshold } from "@/config/automatic-scouting";
 import { automaticRunConfigurationSchema } from "@/server/operations/automatic-run-configuration";
 import { ensureOperationRuntime } from "@/server/operations/operation-runtime";
 
@@ -10,7 +11,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const input = await parseRequest(request);
   if (!input) return NextResponse.json({ message: "추천 실행 입력값이 올바르지 않습니다." }, { status: 400 });
 
-  const outcome = await ensureOperationRuntime().coordinator.executeManual(input);
+  const coordinator = ensureOperationRuntime().coordinator;
+  if (input.targetRecommendedCount >= backgroundRunTargetThreshold) {
+    const accepted = coordinator.startManualInBackground(input);
+    return NextResponse.json({ ...accepted, background: true }, { status: 202 });
+  }
+
+  const outcome = await coordinator.executeManual(input);
   if (outcome.kind === "completed" && outcome.result) {
     return NextResponse.json({ runId: outcome.result.runId, correlationId: outcome.correlationId });
   }

@@ -35,6 +35,12 @@ export class InMemoryDiscoveryStateRepository implements DiscoveryStateRepositor
     });
   }
 
+  recordProgress(key: string, delta: DiscoveryQueryDelta, now: string): void {
+    const state = this.queries.get(key);
+    if (!state) throw new Error("발견 쿼리 상태를 찾을 수 없습니다.");
+    this.queries.set(key, applyDelta(state, delta, now));
+  }
+
   setCooldown(key: string, cooldownUntil: string | null, exhausted: boolean, now: string): void {
     const state = this.queries.get(key);
     if (state) this.queries.set(key, { ...state, cooldownUntil, exhausted, updatedAt: now });
@@ -70,4 +76,21 @@ export class InMemoryDiscoveryStateRepository implements DiscoveryStateRepositor
   }
 
   listLearnedTerms(): LearnedDiscoveryTerm[] { return [...this.terms.values()].map((term) => ({ ...term })); }
+}
+
+function applyDelta(state: DiscoveryQueryState, delta: DiscoveryQueryDelta, now: string): DiscoveryQueryState {
+  return {
+    ...state,
+    candidatesScanned: state.candidatesScanned + (delta.candidatesScanned ?? 0),
+    newIdentities: state.newIdentities + (delta.newIdentities ?? 0),
+    duplicates: state.duplicates + (delta.duplicates ?? 0),
+    recommended: state.recommended + (delta.recommended ?? 0),
+    hold: state.hold + (delta.hold ?? 0),
+    excluded: state.excluded + (delta.excluded ?? 0),
+    failed: state.failed + (delta.failed ?? 0),
+    categoryMatches: state.categoryMatches + (delta.categoryMatches ?? 0),
+    koreanActivityMatches: state.koreanActivityMatches + (delta.koreanActivityMatches ?? 0),
+    personalContacts: state.personalContacts + (delta.personalContacts ?? 0),
+    updatedAt: now,
+  };
 }

@@ -1,5 +1,6 @@
 import type { EvaluatedCreator, RecommendationSettings } from "@/types/domain";
-import type { DiscoveryMode } from "@/server/discovery/discovery-types";
+import type { DiscoveryMode, DiscoveryQueryState } from "@/server/discovery/discovery-types";
+import type { CandidateDiscoveryStrategy } from "@/server/providers/youtube/provider-types";
 
 export interface AutomaticScoutingRunRequest {
   runId: string;
@@ -39,6 +40,8 @@ export interface AutomaticScoutingStatistics {
   recommendationsFilled: number;
   discovered: number;
   priorHistorySkipped: number;
+  historyReevaluated: number;
+  manualOverrideSkipped: number;
   sameRunDuplicatesSkipped: number;
   evaluated: number;
   recommended: number;
@@ -46,6 +49,44 @@ export interface AutomaticScoutingStatistics {
   excluded: number;
   failed: number;
   stopReason: AutomaticScoutingStopReason;
+}
+
+export interface AutomaticScoutingRequestSnapshot {
+  discoveryMode: DiscoveryMode;
+  manualQueries: string[];
+  preferredCategory: string | null;
+  targetRecommendedCount: number;
+  recentVideoLimit: number | null;
+  safetyLimits: AutomaticScoutingSafetyLimits;
+  settings: RecommendationSettings;
+  ruleVersion: string;
+}
+
+export interface AutomaticScoutingQueryAttempt {
+  order: number;
+  query: string;
+  normalizedKey: string;
+  category: string;
+  scope: DiscoveryQueryState["scope"];
+  origin: DiscoveryQueryState["origin"];
+  strategy: CandidateDiscoveryStrategy;
+}
+
+export interface AutomaticScoutingDecisionBreakdown {
+  evaluated: number;
+  staticEligible: number;
+  scoreQualified: number;
+  contactReady: number;
+  recommended: number;
+  hold: number;
+  excluded: number;
+}
+
+export interface AutomaticScoutingDiagnostics {
+  funnel: AutomaticScoutingDecisionBreakdown;
+  querySequence: AutomaticScoutingQueryAttempt[];
+  byCategory: Record<string, AutomaticScoutingDecisionBreakdown>;
+  byQuery: Record<string, AutomaticScoutingDecisionBreakdown>;
 }
 
 export type AutomaticScoutingFailureStage =
@@ -74,6 +115,8 @@ export interface AutomaticScoutingSkip {
 
 export interface AutomaticScoutingRunResult {
   runId: string;
+  runKind: "discovery" | "reevaluation";
+  sourceRunId: string | null;
   status: "completed" | "completed_with_failures";
   startedAt: string;
   completedAt: string;
@@ -81,4 +124,6 @@ export interface AutomaticScoutingRunResult {
   results: EvaluatedCreator[];
   skips: AutomaticScoutingSkip[];
   failures: AutomaticScoutingFailure[];
+  requestSnapshot: AutomaticScoutingRequestSnapshot | null;
+  diagnostics: AutomaticScoutingDiagnostics;
 }

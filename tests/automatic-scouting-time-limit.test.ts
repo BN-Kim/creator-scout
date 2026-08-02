@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { automaticScoutingRunLimitMs } from "@/config/automatic-scouting";
+import { automaticScoutingBackgroundRunLimitMs, automaticScoutingRunLimitMs } from "@/config/automatic-scouting";
 import { formatRunCountdown, remainingRunTimeMs } from "@/lib/run-countdown";
 import {
   defaultAutomaticScoutingSafetyLimits,
@@ -7,11 +7,12 @@ import {
 } from "@/server/scouting/automatic-scouting-config";
 
 describe("automatic scouting time limit", () => {
-  it("uses one minute as the server and UI maximum", () => {
+  it("keeps one minute as the synchronous default while allowing a bounded background window", () => {
     expect(automaticScoutingRunLimitMs).toBe(60_000);
     expect(defaultAutomaticScoutingSafetyLimits.maxRunDurationMs).toBe(automaticScoutingRunLimitMs);
     expect(loadAutomaticScoutingSafetyLimits({}).maxRunDurationMs).toBe(automaticScoutingRunLimitMs);
-    expect(() => loadAutomaticScoutingSafetyLimits({ SCOUTING_MAX_RUN_DURATION_MS: "60001" })).toThrow(
+    expect(loadAutomaticScoutingSafetyLimits({ SCOUTING_MAX_RUN_DURATION_MS: "60001" }).maxRunDurationMs).toBe(60_001);
+    expect(() => loadAutomaticScoutingSafetyLimits({ SCOUTING_MAX_RUN_DURATION_MS: String(automaticScoutingBackgroundRunLimitMs + 1) })).toThrow(
       "자동 스카우팅 안전 한도 설정이 허용 범위를 벗어났습니다.",
     );
   });

@@ -3,29 +3,35 @@ import { defaultRecommendationSettings, recommendationSettingsSchema } from "@/c
 import { validateNewRun } from "@/lib/validation";
 import type { NewRunInput } from "@/types/domain";
 
-const validInput: NewRunInput = { name: "뷰티 탐색", category: "뷰티", keywords: "스킨케어", targetRecommendedCount: 50, maximumDaysSinceLatestUpload: 56, minimumRecentAverageViews: 10000, minimumRecentVideoCount: 2 };
+const validInput: NewRunInput = {
+  ...defaultRecommendationSettings,
+  name: "뷰티 탐색",
+  category: "뷰티",
+  keywords: "스킨케어",
+  targetRecommendedCount: 5,
+};
 describe("configuration and form validation", () => {
   it("accepts valid run input", () => expect(validateNewRun(validInput)).toEqual({}));
-  it("restricts the activity window to 7 through 60 days", () => {
+  it("restricts the activity window to 7 through 90 days", () => {
     expect(validateNewRun({ ...validInput, maximumDaysSinceLatestUpload: 7 })).toEqual({});
-    expect(validateNewRun({ ...validInput, maximumDaysSinceLatestUpload: 60 })).toEqual({});
+    expect(validateNewRun({ ...validInput, maximumDaysSinceLatestUpload: 90 })).toEqual({});
     expect(validateNewRun({ ...validInput, maximumDaysSinceLatestUpload: 6 }).maximumDaysSinceLatestUpload).toBeDefined();
-    expect(validateNewRun({ ...validInput, maximumDaysSinceLatestUpload: 61 }).maximumDaysSinceLatestUpload).toBeDefined();
+    expect(validateNewRun({ ...validInput, maximumDaysSinceLatestUpload: 91 }).maximumDaysSinceLatestUpload).toBeDefined();
     expect(recommendationSettingsSchema.parse({
       ...defaultRecommendationSettings,
       maximumDaysSinceLatestUpload: 7,
     }).maximumDaysSinceLatestUpload).toBe(7);
     expect(recommendationSettingsSchema.parse({
       ...defaultRecommendationSettings,
-      maximumDaysSinceLatestUpload: 60,
-    }).maximumDaysSinceLatestUpload).toBe(60);
+      maximumDaysSinceLatestUpload: 90,
+    }).maximumDaysSinceLatestUpload).toBe(90);
     expect(() => recommendationSettingsSchema.parse({
       ...defaultRecommendationSettings,
       maximumDaysSinceLatestUpload: 6,
     })).toThrow();
     expect(() => recommendationSettingsSchema.parse({
       ...defaultRecommendationSettings,
-      maximumDaysSinceLatestUpload: 61,
+      maximumDaysSinceLatestUpload: 91,
     })).toThrow();
   });
   it("rejects invalid runtime configuration", () => expect(() => recommendationSettingsSchema.parse({})).toThrow());

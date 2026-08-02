@@ -113,7 +113,7 @@ function seedPriorHistory(historyRepository: HistoryRepository): void {
 }
 
 const fictionalAssembler: CreatorInputAssembler = (identity) => {
-  const scenarioIndex = identity.channelId === channelIds.recommended ? 0 : identity.channelId === channelIds.excluded ? 9 : 1;
+  const scenarioIndex = identity.channelId === channelIds.recommended ? 0 : identity.channelId === channelIds.excluded ? 11 : 1;
   const source = mockCreatorInputs[scenarioIndex];
   return {
     ...source,

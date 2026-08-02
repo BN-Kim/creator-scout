@@ -8,11 +8,24 @@ const evaluate = (index: number) => evaluateCreator(mockCreatorInputs[index - 1]
 describe("deterministic creator evaluation", () => {
   it("recommends a fully verified creator with personal email", () => expect(evaluate(1).decision).toBe("recommended"));
   it.each([[2, "missing_email"], [3, "email_not_checked"], [4, "email_ownership_unknown"], [5, "missing_verification"]] as const)("holds incomplete non-disqualifying scenario %i", (index, reason) => { const result = evaluate(index); expect(result.decision).toBe("hold"); expect(result.reasonCodes).toContain(reason); });
-  it.each([[6, "channel_url_unconfirmed"], [7, "no_videos"], [8, "latest_upload_too_old"], [9, "insufficient_recent_video_count"], [10, "recent_views_below_threshold"], [11, "viral_video_distortion"], [12, "category_mismatch"], [13, "foreign_audience_heavy"], [14, "overseas_based"], [15, "official_channel"]] as const)("excludes hard-failure scenario %i", (index, reason) => { const result = evaluate(index); expect(result.decision).toBe("excluded"); expect(result.reasonCodes).toContain(reason); });
+  it.each([[6, "channel_url_unconfirmed"], [7, "no_videos"], [12, "category_mismatch"], [13, "foreign_audience_heavy"], [14, "overseas_based"], [15, "official_channel"]] as const)("excludes confirmed hard-failure scenario %i", (index, reason) => { const result = evaluate(index); expect(result.decision).toBe("excluded"); expect(result.reasonCodes).toContain(reason); });
+  it("keeps inactivity as a score signal instead of a hidden recommendation gate", () => {
+    const result = evaluate(8);
+    expect(result.decision).toBe("recommended");
+    expect(result.reasonCodes).toContain("latest_upload_too_old");
+    expect(result.recheckAt).toBeNull();
+  });
+  it.each([[9, "one recent video"], [10, "robust median reach"], [11, "viral volatility"]] as const)("can recommend scenario %i with %s", (index, _label) => {
+    expect(evaluate(index).decision).toBe("recommended");
+  });
   it.each([[16, "company_email"], [17, "agency_email"], [18, "management_email"], [19, "mcn_email"], [20, "label_email"]] as const)("always excludes representing-organization email scenario %i", (index, reason) => { const result = evaluate(index); expect(result.decision).toBe("excluded"); expect(result.reasonCodes).toContain(reason); });
   it("defensively excludes duplicate inputs that bypass pipeline checks", () => { const evaluated = evaluateMockRun(createInitialHistory()); expect(evaluated[20].reasonCodes).toContain("prior_history_duplicate"); expect(evaluated[21].reasonCodes).toContain("same_run_duplicate"); expect(evaluated[20].decision).toBe("excluded"); expect(evaluated[21].decision).toBe("excluded"); });
   it("manual correction overrides positive evidence", () => { const result = evaluate(23); expect(result.decision).toBe("excluded"); expect(result.reasonCodes).toContain("user_corrected_invalid"); });
-  it("does not invent a subscriber threshold", () => { const result = evaluate(24); expect(result.decision).toBe("recommended"); expect(result.warningChecks.join(" ")).toContain("구독자 기준"); });
+  it("uses subscriber target as a scored preference rather than another hard gate", () => {
+    const result = evaluate(24);
+    expect(result.decision).toBe("recommended");
+    expect(result.reasonCodes).toContain("too_large");
+  });
   it("holds an unverified category instead of trusting the discovery category", () => {
     const source = mockCreatorInputs[0];
     const result = evaluateCreator({
@@ -25,7 +38,7 @@ describe("deterministic creator evaluation", () => {
     expect(result.missingVerificationFields).toContain("카테고리 적합성");
   });
 
-  it("excludes a low-view creator when every available recent video has a confirmed view count", () => {
+  it("allows exceptional total fit to offset low views instead of hard-excluding it", () => {
     const base = mockCreatorInputs[0];
     const result = evaluateCreator({
       ...base,
@@ -36,7 +49,7 @@ describe("deterministic creator evaluation", () => {
         recentAverageViews: 102,
       },
     }, defaultRecommendationSettings, [], [], new Date("2026-07-22T07:00:00Z"));
-    expect(result.decision).toBe("excluded");
+    expect(result.decision).toBe("recommended");
     expect(result.reasonCodes).toContain("recent_views_below_threshold");
     expect(result.missingVerificationFields).not.toContain("대표 최근 조회수");
   });
@@ -116,7 +129,7 @@ describe("deterministic creator evaluation", () => {
     }, defaultRecommendationSettings, [], [], new Date("2026-07-22T07:00:00Z"));
     expect(result.decision).toBe("excluded");
     expect(result.koreanExplanation).not.toContain("보류");
-    expect(result.koreanExplanation).toContain("최근 영상 수가 최소 기준에 미달");
+    expect(result.koreanExplanation).toContain("게시된 영상이 없어 제외");
     expect(result.missingVerificationFields).toContain("대표 최근 조회수");
   });
 

@@ -4,6 +4,7 @@ import { OperationLogger } from "@/server/operations/operation-logger";
 import type { OperationRepository } from "@/server/operations/operation-repository";
 import type {
   AutomaticRunConfiguration,
+  BackgroundRunStart,
   CoordinatedRunOutcome,
   OperationTrigger,
   ScheduledScoutingJob,
@@ -42,11 +43,30 @@ export class OperationCoordinator {
   }
 
   async executeManual(configuration: AutomaticRunConfiguration): Promise<CoordinatedRunOutcome> {
-    return this.execute(configuration, { trigger: "manual", jobId: null, maxRetries: 0 });
+    return this.execute(configuration, { trigger: "manual", jobId: null, maxRetries: 0 }, this.createExecutionIds());
+  }
+
+  startManualInBackground(configuration: AutomaticRunConfiguration): BackgroundRunStart {
+    const identifiers = this.createExecutionIds();
+    void this.execute(
+      configuration,
+      { trigger: "manual", jobId: null, maxRetries: 0 },
+      identifiers,
+    ).catch((error: unknown) => {
+      this.logger.log({
+        correlationId: identifiers.correlationId,
+        executionId: identifiers.executionId,
+        eventType: "background_run_start_failed",
+        level: "error",
+        message: "백그라운드 자동 스카우팅 실행을 시작하지 못했습니다.",
+        metadata: { reason: error instanceof Error ? error.name : "unknown" },
+      });
+    });
+    return identifiers;
   }
 
   async executeScheduled(job: ScheduledScoutingJob, trigger: Extract<OperationTrigger, "scheduled" | "recovery"> = "scheduled"): Promise<CoordinatedRunOutcome> {
-    const outcome = await this.execute(job.request, { trigger, jobId: job.id, maxRetries: job.maxRetries });
+    const outcome = await this.execute(job.request, { trigger, jobId: job.id, maxRetries: job.maxRetries }, this.createExecutionIds());
     if (outcome.kind !== "locked" && outcome.kind !== "paused") {
       const now = this.now();
       this.dependencies.repository.updateScheduleAfterRun(job.id, {
@@ -81,10 +101,9 @@ export class OperationCoordinator {
   private async execute(
     configuration: AutomaticRunConfiguration,
     input: { trigger: OperationTrigger; jobId: string | null; maxRetries: number },
+    identifiers: BackgroundRunStart,
   ): Promise<CoordinatedRunOutcome> {
-    const correlationId = `correlation-${this.createId()}`;
-    const executionId = `execution-${this.createId()}`;
-    const runId = `automatic-${this.createId()}`;
+    const { correlationId, executionId, runId } = identifiers;
 
     if (this.dependencies.repository.getControlState().paused) {
       const execution = this.createSkippedExecution(executionId, correlationId, input, "skipped_paused");
@@ -168,6 +187,14 @@ export class OperationCoordinator {
     } finally {
       this.dependencies.repository.releaseLease(automaticScoutingLockKey, this.ownerId);
     }
+  }
+
+  private createExecutionIds(): BackgroundRunStart {
+    return {
+      correlationId: `correlation-${this.createId()}`,
+      executionId: `execution-${this.createId()}`,
+      runId: `automatic-${this.createId()}`,
+    };
   }
 
   private createSkippedExecution(

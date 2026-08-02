@@ -172,4 +172,63 @@ export const databaseMigrations: readonly DatabaseMigration[] = [
       "CREATE INDEX discovery_learned_source_idx ON discovery_learned_terms(source_channel_id)",
     ],
   },
+  {
+    version: 6,
+    name: "add_marketing_fit_history_fields",
+    statements: [
+      "ALTER TABLE history_records ADD COLUMN fit_score INTEGER CHECK (fit_score IS NULL OR (fit_score >= 0 AND fit_score <= 100))",
+      "ALTER TABLE history_records ADD COLUMN score_components_json TEXT",
+      "ALTER TABLE history_records ADD COLUMN contact_ready INTEGER CHECK (contact_ready IS NULL OR contact_ready IN (0, 1))",
+      "ALTER TABLE history_records ADD COLUMN rule_version TEXT NOT NULL DEFAULT 'legacy'",
+      "ALTER TABLE history_records ADD COLUMN recheck_at TEXT",
+      "ALTER TABLE history_records ADD COLUMN applied_settings_json TEXT",
+      "ALTER TABLE history_records ADD COLUMN decision_source TEXT NOT NULL DEFAULT 'system' CHECK (decision_source IN ('system', 'manual'))",
+      "CREATE INDEX history_records_recheck_idx ON history_records(recheck_at, rule_version)",
+      "CREATE INDEX history_records_fit_score_idx ON history_records(fit_score DESC)",
+    ],
+  },
+  {
+    version: 7,
+    name: "create_manual_decision_audit",
+    statements: [
+      `CREATE TABLE creator_decision_audit (
+        id TEXT PRIMARY KEY,
+        history_record_id TEXT NOT NULL REFERENCES history_records(id) ON DELETE CASCADE,
+        run_id TEXT NOT NULL,
+        creator_internal_id TEXT NOT NULL,
+        previous_decision TEXT NOT NULL CHECK (previous_decision IN ('recommended', 'hold', 'excluded')),
+        next_decision TEXT NOT NULL CHECK (next_decision IN ('recommended', 'hold', 'excluded')),
+        reason_code TEXT NOT NULL CHECK (reason_code IN ('marketer_fit', 'contact_verified', 'campaign_mismatch', 'insufficient_evidence', 'do_not_contact', 'duplicate_or_invalid', 'other')),
+        note TEXT NOT NULL,
+        actor TEXT NOT NULL,
+        changed_at TEXT NOT NULL
+      ) STRICT`,
+      "CREATE INDEX creator_decision_audit_history_idx ON creator_decision_audit(history_record_id, changed_at DESC)",
+      "CREATE INDEX creator_decision_audit_run_idx ON creator_decision_audit(run_id, changed_at DESC)",
+    ],
+  },
+  {
+    version: 8,
+    name: "create_marketing_outcomes",
+    statements: [
+      `CREATE TABLE marketing_outcome_events (
+        id TEXT PRIMARY KEY,
+        history_record_id TEXT NOT NULL REFERENCES history_records(id) ON DELETE CASCADE,
+        run_id TEXT NOT NULL,
+        outcome_type TEXT NOT NULL CHECK (outcome_type IN ('marketer_approved', 'contact_attempted', 'replied', 'meeting', 'contracted', 'content_published', 'campaign_performance')),
+        occurred_at TEXT NOT NULL,
+        note TEXT NOT NULL,
+        content_url TEXT,
+        views INTEGER CHECK (views IS NULL OR views >= 0),
+        likes INTEGER CHECK (likes IS NULL OR likes >= 0),
+        comments INTEGER CHECK (comments IS NULL OR comments >= 0),
+        conversions INTEGER CHECK (conversions IS NULL OR conversions >= 0),
+        revenue_krw INTEGER CHECK (revenue_krw IS NULL OR revenue_krw >= 0),
+        created_at TEXT NOT NULL
+      ) STRICT`,
+      "CREATE INDEX marketing_outcomes_history_idx ON marketing_outcome_events(history_record_id, occurred_at DESC)",
+      "CREATE INDEX marketing_outcomes_type_idx ON marketing_outcome_events(outcome_type, occurred_at DESC)",
+      "CREATE INDEX marketing_outcomes_run_idx ON marketing_outcome_events(run_id, occurred_at DESC)",
+    ],
+  },
 ];
