@@ -75,6 +75,8 @@ describe("SQLite automatic run result repository", () => {
 function fictionalResult(runId: string): AutomaticScoutingRunResult {
   return {
     runId,
+    runKind: "discovery",
+    sourceRunId: null,
     status: "completed",
     startedAt: "2026-07-29T00:00:00.000Z",
     completedAt: "2026-07-29T00:01:00.000Z",
@@ -86,6 +88,8 @@ function fictionalResult(runId: string): AutomaticScoutingRunResult {
       recommendationsFilled: 1,
       discovered: 1,
       priorHistorySkipped: 0,
+      historyReevaluated: 0,
+      manualOverrideSkipped: 0,
       sameRunDuplicatesSkipped: 0,
       evaluated: 1,
       recommended: 1,
@@ -97,5 +101,12 @@ function fictionalResult(runId: string): AutomaticScoutingRunResult {
     results: [],
     skips: [],
     failures: [],
+    requestSnapshot: null,
+    diagnostics: {
+      funnel: { evaluated: 1, staticEligible: 1, scoreQualified: 1, contactReady: 1, recommended: 1, hold: 0, excluded: 0 },
+      querySequence: [],
+      byCategory: {},
+      byQuery: {},
+    },
   };
 }

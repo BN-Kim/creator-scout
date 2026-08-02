@@ -83,5 +83,12 @@ function record(channelId: string, channelName: string, runId: string, createdAt
     createdAt,
     updatedAt: createdAt,
     manualCorrection: null,
+    fitScore: null,
+    scoreComponents: null,
+    contactReady: null,
+    ruleVersion: "legacy",
+    recheckAt: null,
+    appliedSettings: null,
+    decisionSource: "system",
   };
 }

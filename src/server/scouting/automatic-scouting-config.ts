@@ -1,4 +1,4 @@
-import { automaticScoutingRunLimitMs } from "@/config/automatic-scouting";
+import { automaticScoutingBackgroundRunLimitMs, automaticScoutingRunLimitMs } from "@/config/automatic-scouting";
 import type { AutomaticScoutingSafetyLimits } from "@/server/scouting/automatic-scouting-types";
 
 export const defaultAutomaticScoutingSafetyLimits: AutomaticScoutingSafetyLimits = {
@@ -30,7 +30,7 @@ export function loadAutomaticScoutingSafetyLimits(
       environment.SCOUTING_MAX_RUN_DURATION_MS,
       defaultAutomaticScoutingSafetyLimits.maxRunDurationMs,
       1,
-      automaticScoutingRunLimitMs,
+      automaticScoutingBackgroundRunLimitMs,
     ),
     maxProviderFailures: integerSetting(
       environment.SCOUTING_MAX_PROVIDER_FAILURES,

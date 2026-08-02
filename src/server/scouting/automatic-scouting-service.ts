@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { defaultRecommendationSettings } from "@/config/recommendation-rules";
+import { automaticScoutingBackgroundRunLimitMs, backgroundRunTargetThreshold } from "@/config/automatic-scouting";
 import { discoveryTaxonomy } from "@/server/discovery/discovery-taxonomy";
 import { getServerDiscoveryStateRepository, getServerHistoryRepository } from "@/server/history/server-history-repository";
 import type { AutomaticRunConfiguration } from "@/server/operations/operation-types";
@@ -36,12 +37,25 @@ export async function executeAutomaticScouting(
     manualQueries: input.keywords.split(/[\n,]/).map((value) => value.trim()).filter(Boolean),
     ...(input.category ? { preferredCategory: input.category } : {}),
     targetRecommendedCount: input.targetRecommendedCount,
-    safetyLimits: loadAutomaticScoutingSafetyLimits(),
+    safetyLimits: safetyLimitsForTarget(input.targetRecommendedCount),
     settings: {
       ...defaultRecommendationSettings,
       maximumDaysSinceLatestUpload: input.maximumDaysSinceLatestUpload,
+      preferredRecentUploadDays: input.preferredRecentUploadDays,
       minimumRecentAverageViews: input.minimumRecentAverageViews,
+      minimumRecentMedianViews: input.minimumRecentMedianViews,
+      minimumEfficientCreatorMedianViews: input.minimumEfficientCreatorMedianViews,
+      minimumViewSubscriberRatio: input.minimumViewSubscriberRatio,
       minimumRecentVideoCount: input.minimumRecentVideoCount,
+      preferredRecentVideoCount: input.preferredRecentVideoCount,
+      minimumSubscriberCount: input.minimumSubscriberCount,
+      maximumSubscriberCount: input.maximumSubscriberCount,
+      recommendationScoreThreshold: input.recommendationScoreThreshold,
+      holdScoreThreshold: input.holdScoreThreshold,
+      viralRiskPenalty: input.viralRiskPenalty,
+      dynamicExclusionTtlDays: input.dynamicExclusionTtlDays,
+      holdRecheckDays: input.holdRecheckDays,
+      scoreWeights: { ...input.scoreWeights },
       allowedCategories: input.category
         ? [input.category]
         : (input.allowedCategories ?? discoveryTaxonomy.categories.map((category) => category.name)),
@@ -49,4 +63,21 @@ export async function executeAutomaticScouting(
   });
   saveAutomaticRunResult(result);
   return result;
+}
+
+function safetyLimitsForTarget(targetRecommendedCount: number) {
+  const configured = loadAutomaticScoutingSafetyLimits();
+  if (targetRecommendedCount < backgroundRunTargetThreshold) return configured;
+  return {
+    ...configured,
+    maxRunDurationMs: process.env.SCOUTING_MAX_RUN_DURATION_MS
+      ? configured.maxRunDurationMs
+      : automaticScoutingBackgroundRunLimitMs,
+    maxDiscoveryPages: process.env.SCOUTING_MAX_DISCOVERY_PAGES
+      ? configured.maxDiscoveryPages
+      : Math.min(configured.maxDiscoveryPages, 25),
+    maxScannedCandidates: process.env.SCOUTING_MAX_SCANNED_CANDIDATES
+      ? configured.maxScannedCandidates
+      : Math.min(configured.maxScannedCandidates, 1_000),
+  };
 }

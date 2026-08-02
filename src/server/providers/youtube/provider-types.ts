@@ -5,10 +5,15 @@ export type YouTubeIdentityInput =
   | { kind: "handle"; value: string }
   | { kind: "url"; value: string };
 
+export type CandidateDiscoveryStrategy = "channel" | "recent_video";
+
 export interface CandidateDiscoveryRequest {
   query: string;
   maxResults: number;
   pageToken?: string;
+  strategy?: CandidateDiscoveryStrategy;
+  /** RFC 3339 lower bound. Applied only to recent-video search. */
+  publishedAfter?: string;
 }
 
 export interface DiscoveredYouTubeCandidate {

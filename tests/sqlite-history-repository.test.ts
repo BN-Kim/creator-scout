@@ -28,11 +28,16 @@ describe("SQLite history repository", () => {
       { version: 3, name: "create_operational_scheduler" },
       { version: 4, name: "persist_automatic_run_results" },
       { version: 5, name: "add_learned_term_provenance" },
+      { version: 6, name: "add_marketing_fit_history_fields" },
+      { version: 7, name: "create_manual_decision_audit" },
+      { version: 8, name: "create_marketing_outcomes" },
     ]);
     expect(tables).toEqual(expect.arrayContaining([
       "history_records", "history_identity_keys", "discovery_query_state", "discovery_learned_terms",
       "operation_control", "scheduled_scouting_jobs", "operation_leases", "scouting_run_executions", "operational_events",
       "automatic_scouting_run_results",
+      "creator_decision_audit",
+      "marketing_outcome_events",
     ]));
   });
 

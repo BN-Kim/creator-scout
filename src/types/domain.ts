@@ -8,6 +8,64 @@ export type RecruitmentVerificationState = VerificationState | "not_found" | "co
 export type OrganizationType = "company" | "agency" | "management" | "mcn" | "label";
 export type AffiliationType = OrganizationType | "independent" | "unknown";
 export type KoreanLanguageActivityState = "likely" | "unclear" | "unlikely";
+export type DecisionSource = "system" | "manual";
+export type ManualDecisionReason =
+  | "marketer_fit"
+  | "contact_verified"
+  | "campaign_mismatch"
+  | "insufficient_evidence"
+  | "do_not_contact"
+  | "duplicate_or_invalid"
+  | "other";
+
+export interface ManualDecisionAudit {
+  id: string;
+  historyRecordId: string;
+  runId: string;
+  creatorInternalId: string;
+  previousDecision: CreatorDecision;
+  nextDecision: CreatorDecision;
+  reason: ManualDecisionReason;
+  note: string;
+  actor: string;
+  changedAt: string;
+}
+
+export type MarketingOutcomeType =
+  | "marketer_approved"
+  | "contact_attempted"
+  | "replied"
+  | "meeting"
+  | "contracted"
+  | "content_published"
+  | "campaign_performance";
+
+export interface MarketingOutcomeEvent {
+  id: string;
+  historyRecordId: string;
+  runId: string;
+  outcomeType: MarketingOutcomeType;
+  occurredAt: string;
+  note: string;
+  contentUrl: string | null;
+  views: number | null;
+  likes: number | null;
+  comments: number | null;
+  conversions: number | null;
+  revenueKrw: number | null;
+  createdAt: string;
+}
+
+export interface FitScoreComponents {
+  categoryRelevance: number;
+  koreanMarketActivity: number;
+  activityConsistency: number;
+  reachEfficiency: number;
+  authenticityRisk: number;
+  contactability: number;
+}
+
+export type FitScoreWeights = FitScoreComponents;
 
 export interface CreatorCategoryEvidence {
   verifiedCategory: string | null;
@@ -167,6 +225,13 @@ export interface IdentityMatch {
 
 export interface EvaluationResult {
   decision: CreatorDecision;
+  fitScore: number | null;
+  scoreComponents: FitScoreComponents | null;
+  contactReady: boolean;
+  ruleVersion: string;
+  recheckAt: string | null;
+  appliedSettings: RecommendationSettings | null;
+  decisionSource: DecisionSource;
   reasonCodes: ReasonCode[];
   koreanExplanation: string;
   passedChecks: string[];
@@ -191,20 +256,31 @@ export type ReasonCode =
   | "management_affiliation" | "mcn_affiliation" | "label_affiliation" | "company_email"
   | "agency_email" | "management_email" | "mcn_email" | "label_email" | "missing_email"
   | "email_not_checked" | "email_ownership_unknown" | "affiliation_conflict" | "missing_verification"
-  | "subscriber_threshold_not_configured" | "reupload_channel" | "compilation_channel" | "too_large";
+  | "subscriber_threshold_not_configured" | "subscriber_below_target" | "reupload_channel" | "compilation_channel"
+  | "too_large" | "fit_score_below_threshold" | "manual_decision_override";
 
 export interface RecommendationSettings {
   maximumDaysSinceLatestUpload: number;
+  preferredRecentUploadDays: number;
   minimumRecentVideoCount: number;
   preferredRecentVideoCount: number;
   minimumRecentAverageViews: number;
+  minimumRecentMedianViews: number;
+  minimumEfficientCreatorMedianViews: number;
+  minimumViewSubscriberRatio: number;
   defaultRecentAverageWindow: number;
   extendedRecentAverageWindow: number;
+  recommendationScoreThreshold: number;
+  holdScoreThreshold: number;
+  viralRiskPenalty: number;
+  dynamicExclusionTtlDays: number;
+  holdRecheckDays: number;
+  scoreWeights: FitScoreWeights;
   allowedCategories: string[];
   blockedChannelTypes: string[];
   excludedEmailClassifications: EmailClassification[];
-  minimumSubscriberCount?: number;
-  maximumSubscriberCount?: number;
+  minimumSubscriberCount: number;
+  maximumSubscriberCount: number;
 }
 
 export interface HistoryRecord {
@@ -220,6 +296,13 @@ export interface HistoryRecord {
   createdAt: string;
   updatedAt: string;
   manualCorrection: ManualCorrection | null;
+  fitScore: number | null;
+  scoreComponents: FitScoreComponents | null;
+  contactReady: boolean | null;
+  ruleVersion: string;
+  recheckAt: string | null;
+  appliedSettings: RecommendationSettings | null;
+  decisionSource: DecisionSource;
 }
 
 export interface ScoutingRun {
@@ -235,7 +318,20 @@ export interface NewRunInput {
   keywords: string;
   targetRecommendedCount: number;
   maximumDaysSinceLatestUpload: number;
+  preferredRecentUploadDays: number;
   minimumRecentAverageViews: number;
+  minimumRecentMedianViews: number;
+  minimumEfficientCreatorMedianViews: number;
+  minimumViewSubscriberRatio: number;
   minimumRecentVideoCount: number;
+  preferredRecentVideoCount: number;
+  minimumSubscriberCount: number;
+  maximumSubscriberCount: number;
+  recommendationScoreThreshold: number;
+  holdScoreThreshold: number;
+  viralRiskPenalty: number;
+  dynamicExclusionTtlDays: number;
+  holdRecheckDays: number;
+  scoreWeights: FitScoreWeights;
   allowedCategories?: string[];
 }

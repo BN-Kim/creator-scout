@@ -128,6 +128,27 @@ describe("H6 scheduling and operations", () => {
     expect(repository.listExecutions().filter((execution) => execution.jobId === job.id && execution.status === "succeeded")).toHaveLength(1);
   });
 
+  it("returns background execution identifiers before a long manual run completes", async () => {
+    const { repository } = createRepository();
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const coordinator = coordinatorHarness(repository, {
+      executeRun: async (_configuration, runId) => {
+        await gate;
+        return result(runId);
+      },
+    });
+
+    const accepted = coordinator.startManualInBackground(configuration());
+
+    expect(accepted.runId).toMatch(/^automatic-/);
+    expect(accepted.executionId).toMatch(/^execution-/);
+    await vi.waitFor(() => expect(repository.getExecution(accepted.executionId)?.status).toBe("running"));
+    release();
+    await vi.waitFor(() => expect(repository.getExecution(accepted.executionId)?.status).toBe("succeeded"));
+    expect(repository.getExecution(accepted.executionId)?.runId).toBe(accepted.runId);
+  });
+
   it("recovers an interrupted scheduled execution after its lease expires", async () => {
     const { repository } = createRepository();
     const job = schedule(repository, { nextRunAt: BASE_TIME.toISOString() });
@@ -217,13 +238,18 @@ function coordinatorHarness(
 
 function result(runId: string, stats: Partial<AutomaticScoutingRunResult["statistics"]> = {}): AutomaticScoutingRunResult {
   return {
-    runId, status: "completed", startedAt: BASE_TIME.toISOString(), completedAt: BASE_TIME.toISOString(),
+    runId, runKind: "discovery", sourceRunId: null, status: "completed", startedAt: BASE_TIME.toISOString(), completedAt: BASE_TIME.toISOString(),
     statistics: {
       discoveryMode: "automatic", queriesAttempted: 1, pagesScanned: 1, targetRecommendedCount: 1,
       recommendationsFilled: 1, discovered: 1, priorHistorySkipped: 0, sameRunDuplicatesSkipped: 0,
+      historyReevaluated: 0, manualOverrideSkipped: 0,
       evaluated: 1, recommended: 1, hold: 0, excluded: 0, failed: 0, stopReason: "target_reached", ...stats,
     },
-    results: [], skips: [], failures: [],
+    results: [], skips: [], failures: [], requestSnapshot: null,
+    diagnostics: {
+      funnel: { evaluated: 1, staticEligible: 1, scoreQualified: 1, contactReady: 1, recommended: 1, hold: 0, excluded: 0 },
+      querySequence: [], byCategory: {}, byQuery: {},
+    },
   };
 }
 

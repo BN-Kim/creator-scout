@@ -72,7 +72,7 @@ describe("automatic scouting pipeline", () => {
 
   it("evaluates and persists each genuinely new creator exactly once with correct decision statistics", async () => {
     const repository = createRepository();
-    const assembler = scenarioAssembler(new Map([[CHANNEL_A, 0], [CHANNEL_B, 1], [CHANNEL_C, 9]]));
+    const assembler = scenarioAssembler(new Map([[CHANNEL_A, 0], [CHANNEL_B, 1], [CHANNEL_C, 11]]));
     const harness = createHarness([CHANNEL_A, CHANNEL_B, CHANNEL_C], repository, { assembler });
     const result = await harness.pipeline.run(request(2));
 
@@ -85,6 +85,8 @@ describe("automatic scouting pipeline", () => {
       recommendationsFilled: 1,
       discovered: 3,
       priorHistorySkipped: 0,
+      historyReevaluated: 0,
+      manualOverrideSkipped: 0,
       sameRunDuplicatesSkipped: 0,
       evaluated: 3,
       recommended: 1,
@@ -288,7 +290,7 @@ describe("automatic scouting pipeline", () => {
     repository.addOrUpdate(historyRecordFor(CHANNEL_A));
     const candidates = [CHANNEL_A, CHANNEL_B, CHANNEL_B, CHANNEL_C, CHANNEL_D, CHANNEL_E, CHANNEL_F, CHANNEL_G, CHANNEL_H, CHANNEL_I];
     const assembler = scenarioAssembler(new Map([
-      [CHANNEL_B, 1], [CHANNEL_C, 9],
+      [CHANNEL_B, 1], [CHANNEL_C, 11],
       [CHANNEL_E, 0], [CHANNEL_F, 0], [CHANNEL_G, 0], [CHANNEL_H, 0], [CHANNEL_I, 0],
     ]));
     const harness = createHarness(candidates, repository, {
@@ -305,6 +307,8 @@ describe("automatic scouting pipeline", () => {
       recommendationsFilled: 5,
       discovered: 10,
       priorHistorySkipped: 1,
+      historyReevaluated: 0,
+      manualOverrideSkipped: 0,
       sameRunDuplicatesSkipped: 1,
       evaluated: 7,
       recommended: 5,
@@ -460,7 +464,7 @@ describe("automatic scouting pipeline", () => {
     expect(backingRepository.load().map((record) => record.identity.youtubeChannelId)).toEqual([CHANNEL_B]);
   });
 
-  it("learns discovery phrases from newly recommended creators only", async () => {
+  it("learns safe discovery phrases from recommended and score-qualified hold creators", async () => {
     const repository = createRepository();
     const discoveryState = new InMemoryDiscoveryStateRepository();
     const recruitmentProvider: RecruitmentEvidenceProvider = {
@@ -479,8 +483,10 @@ describe("automatic scouting pipeline", () => {
     const hold = createHarness([CHANNEL_B], createRepository(), {
       assembler: scenarioAssembler(new Map([[CHANNEL_B, 1]])), recruitmentProvider, discoveryStateRepository: holdState,
     });
-    await hold.pipeline.run(request(1));
-    expect(holdState.listLearnedTerms()).toEqual([]);
+    const holdResult = await hold.pipeline.run(request(1));
+    expect(holdResult.results[0]).toMatchObject({ decision: "hold" });
+    expect(holdResult.results[0].fitScore).toBeGreaterThanOrEqual(defaultRecommendationSettings.recommendationScoreThreshold);
+    expect(holdState.listLearnedTerms()).toHaveLength(1);
   });
 
   it("continues across automatically selected queries with category-fair discovery turns", async () => {

@@ -1,4 +1,5 @@
 import type { AutomaticScoutingRunResult } from "@/server/scouting/automatic-scouting-types";
+import type { FitScoreWeights } from "@/types/domain";
 
 export type OperationTrigger = "manual" | "scheduled" | "recovery";
 export type OperationExecutionStatus = "running" | "succeeded" | "failed" | "interrupted" | "skipped_locked" | "skipped_paused";
@@ -11,8 +12,21 @@ export interface AutomaticRunConfiguration {
   keywords: string;
   targetRecommendedCount: number;
   maximumDaysSinceLatestUpload: number;
+  preferredRecentUploadDays: number;
   minimumRecentAverageViews: number;
+  minimumRecentMedianViews: number;
+  minimumEfficientCreatorMedianViews: number;
+  minimumViewSubscriberRatio: number;
   minimumRecentVideoCount: number;
+  preferredRecentVideoCount: number;
+  minimumSubscriberCount: number;
+  maximumSubscriberCount: number;
+  recommendationScoreThreshold: number;
+  holdScoreThreshold: number;
+  viralRiskPenalty: number;
+  dynamicExclusionTtlDays: number;
+  holdRecheckDays: number;
+  scoreWeights: FitScoreWeights;
   allowedCategories?: string[];
 }
 
@@ -101,4 +115,10 @@ export interface CoordinatedRunOutcome {
   executionId: string;
   result: AutomaticScoutingRunResult | null;
   errorCategory: string | null;
+}
+
+export interface BackgroundRunStart {
+  correlationId: string;
+  executionId: string;
+  runId: string;
 }

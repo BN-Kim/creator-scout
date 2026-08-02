@@ -12,10 +12,23 @@ import { validateNewRun, type ValidationErrors } from "@/lib/validation";
 import type { NewRunInput } from "@/types/domain";
 
 const initialValues: NewRunInput = {
-  name: "", discoveryMode: "automatic", category: "", keywords: "", targetRecommendedCount: 50,
+  name: "", discoveryMode: "automatic", category: "", keywords: "", targetRecommendedCount: 5,
   maximumDaysSinceLatestUpload: defaultRecommendationSettings.maximumDaysSinceLatestUpload,
+  preferredRecentUploadDays: defaultRecommendationSettings.preferredRecentUploadDays,
   minimumRecentAverageViews: defaultRecommendationSettings.minimumRecentAverageViews,
+  minimumRecentMedianViews: defaultRecommendationSettings.minimumRecentMedianViews,
+  minimumEfficientCreatorMedianViews: defaultRecommendationSettings.minimumEfficientCreatorMedianViews,
+  minimumViewSubscriberRatio: defaultRecommendationSettings.minimumViewSubscriberRatio,
   minimumRecentVideoCount: defaultRecommendationSettings.minimumRecentVideoCount,
+  preferredRecentVideoCount: defaultRecommendationSettings.preferredRecentVideoCount,
+  minimumSubscriberCount: defaultRecommendationSettings.minimumSubscriberCount,
+  maximumSubscriberCount: defaultRecommendationSettings.maximumSubscriberCount,
+  recommendationScoreThreshold: defaultRecommendationSettings.recommendationScoreThreshold,
+  holdScoreThreshold: defaultRecommendationSettings.holdScoreThreshold,
+  viralRiskPenalty: defaultRecommendationSettings.viralRiskPenalty,
+  dynamicExclusionTtlDays: defaultRecommendationSettings.dynamicExclusionTtlDays,
+  holdRecheckDays: defaultRecommendationSettings.holdRecheckDays,
+  scoreWeights: defaultRecommendationSettings.scoreWeights,
   allowedCategories: defaultRecommendationSettings.allowedCategories,
 };
 
@@ -35,8 +48,21 @@ export default function NewRunPage(): React.ReactNode {
       setValues((current) => ({
         ...current,
         maximumDaysSinceLatestUpload: settings.maximumDaysSinceLatestUpload,
+        preferredRecentUploadDays: settings.preferredRecentUploadDays,
         minimumRecentAverageViews: settings.minimumRecentAverageViews,
+        minimumRecentMedianViews: settings.minimumRecentMedianViews,
+        minimumEfficientCreatorMedianViews: settings.minimumEfficientCreatorMedianViews,
+        minimumViewSubscriberRatio: settings.minimumViewSubscriberRatio,
         minimumRecentVideoCount: settings.minimumRecentVideoCount,
+        preferredRecentVideoCount: settings.preferredRecentVideoCount,
+        minimumSubscriberCount: settings.minimumSubscriberCount,
+        maximumSubscriberCount: settings.maximumSubscriberCount,
+        recommendationScoreThreshold: settings.recommendationScoreThreshold,
+        holdScoreThreshold: settings.holdScoreThreshold,
+        viralRiskPenalty: settings.viralRiskPenalty,
+        dynamicExclusionTtlDays: settings.dynamicExclusionTtlDays,
+        holdRecheckDays: settings.holdRecheckDays,
+        scoreWeights: { ...settings.scoreWeights },
         allowedCategories: settings.allowedCategories,
         category: settings.allowedCategories.includes(current.category) ? current.category : "",
       }));
@@ -59,10 +85,13 @@ export default function NewRunPage(): React.ReactNode {
       const response = await fetch("/api/runs/automatic", {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(values),
       });
-      const body = await response.json() as { runId?: string; message?: string };
+      const body = await response.json() as { runId?: string; executionId?: string; background?: boolean; message?: string };
       if (!response.ok || !body.runId) throw new Error(body.message ?? "추천 실행을 시작하지 못했습니다.");
       notifyOperationsChanged();
-      router.push(`/runs/${body.runId}`);
+      const executionQuery = body.background && body.executionId
+        ? `?executionId=${encodeURIComponent(body.executionId)}`
+        : "";
+      router.push(`/runs/${body.runId}${executionQuery}`);
     } catch (error: unknown) {
       setSubmitError(error instanceof Error ? error.message : "추천 실행을 시작하지 못했습니다.");
       setSubmitting(false);
@@ -79,6 +108,7 @@ export default function NewRunPage(): React.ReactNode {
       <Field label="스카우팅 목표" error={errors.targetRecommendedCount} hint="(명)" wide>
         <NumberInput value={values.targetRecommendedCount} onChange={(value) => setField("targetRecommendedCount", value)} min={1} max={500} />
       </Field>
+      {values.targetRecommendedCount >= 20 && <p className="-mt-3 mb-6 rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-700">20명 이상 목표는 백그라운드에서 실행되며 진행 화면에서 상태를 자동 확인합니다.</p>}
       <details className="mt-7 rounded-xl border border-slate-200 p-4">
         <summary className="focus-ring cursor-pointer rounded text-sm font-semibold text-slate-700">검색 설정(선택)</summary>
         <div className="mt-5 grid gap-6 sm:grid-cols-2">
@@ -101,14 +131,27 @@ export default function NewRunPage(): React.ReactNode {
           <Field label="스카우트 제목" error={errors.name} hint="선택">
             <input className="input" value={values.name} onChange={(event) => setField("name", event.target.value)} placeholder="비워 두면 자동 생성" />
           </Field>
-          <Field label="최근 업로드 기준" error={errors.maximumDaysSinceLatestUpload} hint="7~60일">
+          <Field label="최근 업로드 기준" error={errors.maximumDaysSinceLatestUpload} hint="7~90일">
             <NumberInput value={values.maximumDaysSinceLatestUpload} onChange={(value) => setField("maximumDaysSinceLatestUpload", value)} min={maximumDaysSinceLatestUploadRange.minimum} max={maximumDaysSinceLatestUploadRange.maximum} />
           </Field>
           <Field label="최소 평균 조회수" error={errors.minimumRecentAverageViews} hint="조회수">
             <NumberInput value={values.minimumRecentAverageViews} onChange={(value) => setField("minimumRecentAverageViews", value)} min={0} />
           </Field>
+          <Field label="최소 중앙 조회수" error={errors.minimumRecentMedianViews} hint="조회수">
+            <NumberInput value={values.minimumRecentMedianViews} onChange={(value) => setField("minimumRecentMedianViews", value)} min={0} />
+          </Field>
           <Field label="최소 업로드 수" error={errors.minimumRecentVideoCount} hint="영상 개수">
-            <NumberInput value={values.minimumRecentVideoCount} onChange={(value) => setField("minimumRecentVideoCount", value)} min={2} />
+            <NumberInput value={values.minimumRecentVideoCount} onChange={(value) => setValues((current) => ({
+              ...current,
+              minimumRecentVideoCount: value,
+              preferredRecentVideoCount: Math.max(defaultRecommendationSettings.preferredRecentVideoCount, value),
+            }))} min={1} />
+          </Field>
+          <Field label="최소 구독자 수" error={errors.minimumSubscriberCount} hint="명">
+            <NumberInput value={values.minimumSubscriberCount} onChange={(value) => setField("minimumSubscriberCount", value)} min={0} />
+          </Field>
+          <Field label="최대 구독자 수" error={errors.maximumSubscriberCount} hint="명">
+            <NumberInput value={values.maximumSubscriberCount} onChange={(value) => setField("maximumSubscriberCount", value)} min={1} />
           </Field>
         </div>
       </details>

@@ -67,4 +67,42 @@ describe("YouTube identity and discovery provider", () => {
     expect(secondPage.candidates[0].channelId).toBe(SECOND_MOCK_CHANNEL_ID);
     expect(queue.urls[1].searchParams.get("pageToken")).toBe("next-mock-page");
   });
+
+  it("discovers unique channels through recent videos with an RFC 3339 date filter", async () => {
+    const raw = {
+      nextPageToken: "recent-next",
+      items: [
+        { id: { videoId: "video-one" }, snippet: { channelId: MOCK_CHANNEL_ID, channelTitle: "허구 최근 채널", title: "최근 영상 1" } },
+        { id: { videoId: "video-two" }, snippet: { channelId: MOCK_CHANNEL_ID, channelTitle: "허구 최근 채널", title: "최근 영상 2" } },
+        { id: { videoId: "video-three" }, snippet: { channelId: SECOND_MOCK_CHANNEL_ID, channelTitle: "허구 최근 채널 2", title: "최근 영상 3" } },
+      ],
+    };
+    const queue = new FetchQueue(jsonResponse(raw));
+    const provider = new YouTubeDataApiProvider(providerConfig(), { fetch: queue.fetch });
+
+    const result = await provider.discoverCandidates({
+      query: "허구 푸드 레시피",
+      maxResults: 10,
+      strategy: "recent_video",
+      publishedAfter: "2026-05-04T00:00:00.000Z",
+    });
+
+    expect(result.candidates.map((candidate) => candidate.channelId)).toEqual([MOCK_CHANNEL_ID, SECOND_MOCK_CHANNEL_ID]);
+    expect(result.candidates[0].discoveredTitle).toBe("허구 최근 채널");
+    expect(result.nextPageToken).toBe("recent_video:recent-next");
+    expect(queue.urls[0].searchParams.get("type")).toBe("video");
+    expect(queue.urls[0].searchParams.get("order")).toBe("date");
+    expect(queue.urls[0].searchParams.get("publishedAfter")).toBe("2026-05-04T00:00:00.000Z");
+  });
+
+  it("rejects recent-video discovery without a valid date filter before making a request", async () => {
+    const queue = new FetchQueue();
+    const provider = new YouTubeDataApiProvider(providerConfig(), { fetch: queue.fetch });
+    await expect(provider.discoverCandidates({
+      query: "허구 최근 영상",
+      maxResults: 5,
+      strategy: "recent_video",
+    })).rejects.toMatchObject({ category: "invalid_input" });
+    expect(queue.urls).toHaveLength(0);
+  });
 });

@@ -114,6 +114,39 @@ describe("H4.3 autonomous discovery", () => {
     expect(second?.category).not.toBe(first?.category);
   });
 
+  it("defers a query continuation until other available queries receive a turn", () => {
+    const { discovery } = repositories();
+    const selector = new AdaptiveQuerySelector(
+      discovery,
+      { mode: "manual_replace", manualQueries: ["한국 뷰티 리뷰", "한국 푸드 리뷰"] },
+      () => NOW,
+    );
+    selector.initialize();
+    const first = selector.next(0)!;
+    selector.allowContinuation({ ...first, continuationToken: "page-two" });
+    const second = selector.next(0)!;
+    selector.allowContinuation({ ...second, continuationToken: "page-two" });
+    const third = selector.next(0)!;
+
+    expect(second.normalizedKey).not.toBe(first.normalizedKey);
+    expect([first.normalizedKey, second.normalizedKey]).toContain(third.normalizedKey);
+  });
+
+  it("opens medium and broad discovery after twenty evaluated candidates without a recommendation", () => {
+    const { discovery } = repositories();
+    const selector = new AdaptiveQuerySelector(
+      discovery,
+      { mode: "automatic", manualQueries: [], preferredCategory: "푸드" },
+      () => NOW,
+    );
+    selector.initialize();
+
+    const selected = Array.from({ length: 6 }, () => selector.next({ recommendationsFilled: 0, evaluated: 20 }))
+      .filter((state) => state !== null);
+
+    expect(selected.some((state) => state.scope === "medium" || state.scope === "broad")).toBe(true);
+  });
+
   it("restricts automatic taxonomy and learned queries to the user-selected category", () => {
     const { discovery } = repositories();
     discovery.ensureQueries(generateTaxonomyQueries(), NOW.toISOString());
@@ -180,6 +213,29 @@ describe("H4.3 autonomous discovery", () => {
     expect(reconstructed.listQueries()[0]).toMatchObject({
       continuationToken: "fictional-next-page", attempts: 1, pagesScanned: 1, candidatesScanned: 7,
       newIdentities: 5, duplicates: 2, recommended: 1, hold: 2, excluded: 1, failed: 1, exhausted: false,
+    });
+  });
+
+  it("persists partial query quality without falsely counting another provider page", () => {
+    const { discovery } = repositories();
+    const query = generateTaxonomyQueries(["narrow"])[0];
+    discovery.ensureQueries([query], NOW.toISOString());
+    discovery.recordProgress(query.normalizedKey, {
+      candidatesScanned: 10,
+      newIdentities: 8,
+      hold: 5,
+      excluded: 3,
+      categoryMatches: 6,
+    }, NOW.toISOString());
+
+    expect(discovery.listQueries()[0]).toMatchObject({
+      pagesScanned: 0,
+      attempts: 0,
+      candidatesScanned: 10,
+      newIdentities: 8,
+      hold: 5,
+      excluded: 3,
+      categoryMatches: 6,
     });
   });
 

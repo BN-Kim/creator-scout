@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { legacyRecommendationRuleVersion, recommendationSettingsSchema } from "@/config/recommendation-rules";
 
 const verificationStateSchema = z.enum(["confirmed", "unconfirmed", "not_checked"]);
 const creatorDecisionSchema = z.enum(["recommended", "hold", "excluded"]);
@@ -12,7 +13,7 @@ const reasonCodeSchema = z.enum([
   "brand_channel", "agency_affiliation", "management_affiliation", "mcn_affiliation", "label_affiliation",
   "company_email", "agency_email", "management_email", "mcn_email", "label_email", "missing_email",
   "email_not_checked", "email_ownership_unknown", "affiliation_conflict", "missing_verification", "subscriber_threshold_not_configured",
-  "reupload_channel", "compilation_channel", "too_large",
+  "subscriber_below_target", "reupload_channel", "compilation_channel", "too_large", "fit_score_below_threshold", "manual_decision_override",
 ]);
 const manualCorrectionCodeSchema = z.enum([
   "already_processed", "no_videos", "inactive", "channel_not_found", "too_large", "celebrity_or_official",
@@ -31,6 +32,7 @@ export const historyRecordSchema = z.object({
     youtubeChannelId: z.string().nullable(),
     youtubeHandle: z.string().nullable(),
     sourceUrls: z.array(z.string()),
+    discoveryCategory: z.string().optional(),
     category: z.string().min(1),
     identityVerificationState: verificationStateSchema,
   }),
@@ -48,6 +50,20 @@ export const historyRecordSchema = z.object({
     note: z.string(),
     correctedAt: z.string().datetime(),
   }).nullable(),
+  fitScore: z.number().int().min(0).max(100).nullable().default(null),
+  scoreComponents: z.object({
+    categoryRelevance: z.number().nonnegative(),
+    koreanMarketActivity: z.number().nonnegative(),
+    activityConsistency: z.number().nonnegative(),
+    reachEfficiency: z.number().nonnegative(),
+    authenticityRisk: z.number().nonnegative(),
+    contactability: z.number().nonnegative(),
+  }).nullable().default(null),
+  contactReady: z.boolean().nullable().default(null),
+  ruleVersion: z.string().min(1).default(legacyRecommendationRuleVersion),
+  recheckAt: z.string().datetime().nullable().default(null),
+  appliedSettings: recommendationSettingsSchema.nullable().default(null),
+  decisionSource: z.enum(["system", "manual"]).default("system"),
 });
 
 export const historyRecordArraySchema = z.array(historyRecordSchema);

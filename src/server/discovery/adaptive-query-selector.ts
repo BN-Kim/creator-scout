@@ -9,11 +9,17 @@ export interface AdaptiveQuerySelectorOptions {
   preferredCategory?: string;
 }
 
+export interface DiscoverySelectionProgress {
+  recommendationsFilled: number;
+  evaluated: number;
+}
+
 export class AdaptiveQuerySelector {
   private readonly attemptedThisRun = new Set<string>();
   private readonly selectedCategoryCounts = new Map<string, number>();
   private lastCategory: string | null = null;
   private selectionCount = 0;
+  private readonly continuationQueue = new Map<string, DiscoveryQueryState>();
 
   constructor(
     private readonly repository: DiscoveryStateRepository,
@@ -51,7 +57,10 @@ export class AdaptiveQuerySelector {
     this.repository.ensureQueries([...automatic, ...manual, ...learned], now.toISOString());
   }
 
-  next(recommendationsFilled: number): DiscoveryQueryState | null {
+  next(progressInput: number | DiscoverySelectionProgress): DiscoveryQueryState | null {
+    const progress = typeof progressInput === "number"
+      ? { recommendationsFilled: progressInput, evaluated: 0 }
+      : progressInput;
     const nowMs = this.now().getTime();
     const manualKeys = new Set(
       createManualQueries(this.options.manualQueries, this.options.preferredCategory)
@@ -65,9 +74,15 @@ export class AdaptiveQuerySelector {
       && !this.attemptedThisRun.has(state.normalizedKey)
       && (!state.cooldownUntil || Date.parse(state.cooldownUntil) <= nowMs),
     );
-    if (states.length === 0) return null;
-    const availableScopes = scopeOrder(recommendationsFilled, states);
-    const scoped = states.filter((state) => availableScopes.includes(state.scope));
+    const normalStates = states.length > 0;
+    const availableStates = normalStates
+      ? states
+      : [...this.continuationQueue.values()].filter((state) =>
+          !state.exhausted
+          && (!state.cooldownUntil || Date.parse(state.cooldownUntil) <= nowMs));
+    if (availableStates.length === 0) return null;
+    const availableScopes = scopeOrder(progress, availableStates);
+    const scoped = availableStates.filter((state) => availableScopes.includes(state.scope));
     const strategy = this.selectionCount % 3;
     const strategicPool = scoped.filter((state) => strategy === 0
       ? scoreDiscoveryQuery(state).proven
@@ -79,6 +94,7 @@ export class AdaptiveQuerySelector {
     const selected = ranked[0];
     this.selectionCount += 1;
     this.attemptedThisRun.add(selected.normalizedKey);
+    if (!normalStates) this.continuationQueue.delete(selected.normalizedKey);
     this.lastCategory = selected.category;
     this.selectedCategoryCounts.set(
       selected.category,
@@ -88,7 +104,7 @@ export class AdaptiveQuerySelector {
   }
 
   allowContinuation(state: DiscoveryQueryState): void {
-    this.attemptedThisRun.delete(state.normalizedKey);
+    this.continuationQueue.set(state.normalizedKey, state);
   }
 }
 
@@ -105,9 +121,9 @@ function isAllowedForMode(state: DiscoveryQueryState, mode: DiscoveryMode, manua
   return state.origin === "taxonomy" || state.origin === "learned";
 }
 
-function scopeOrder(recommendationsFilled: number, states: readonly DiscoveryQueryState[]): DiscoveryScope[] {
+function scopeOrder(progress: DiscoverySelectionProgress, states: readonly DiscoveryQueryState[]): DiscoveryScope[] {
   const hasNarrow = states.some((state) => state.scope === "narrow");
-  if (hasNarrow && recommendationsFilled === 0) return ["narrow"];
+  if (hasNarrow && progress.recommendationsFilled === 0 && progress.evaluated < 20) return ["narrow"];
   const hasMedium = states.some((state) => state.scope === "medium");
   if (hasMedium) return ["narrow", "medium"];
   return ["narrow", "medium", "broad"];

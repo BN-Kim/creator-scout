@@ -1,6 +1,6 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 
-const requiredRoutes = ["/runs", "/runs/new", "/runs/mock-new-run", "/runs/automatic-h4-mock-run", "/history", "/settings"] as const;
+const requiredRoutes = ["/runs", "/runs/new", "/runs/mock-new-run", "/runs/automatic-h4-mock-run", "/history", "/insights", "/settings"] as const;
 
 async function resetBrowserStorage(page: Page): Promise<void> {
   await page.goto("/");
@@ -168,9 +168,9 @@ test("추천·보류·제외가 렌더링되고 각 크리에이터는 한 그�
   const recommendedNames = await sections.nth(0).locator("tbody button").allTextContents();
   const holdNames = await sections.nth(1).locator("tbody button").allTextContents();
   const excludedNames = await sections.nth(2).locator("tbody button").allTextContents();
-  expect(recommendedNames).toHaveLength(2);
+  expect(recommendedNames).toHaveLength(6);
   expect(holdNames).toHaveLength(4);
-  expect(excludedNames).toHaveLength(18);
+  expect(excludedNames).toHaveLength(14);
 
   const allNames = [...recommendedNames, ...holdNames, ...excludedNames];
   expect(new Set(allNames).size).toBe(allNames.length);
@@ -276,7 +276,7 @@ test("H4 자동 실행은 신규 결과만 표시하고 반복 실행에도 히�
   await expect(page.getByText("H4 허구 보류 채널", { exact: true })).toHaveCount(1);
   await expect(page.getByText("H4 허구 제외 채널", { exact: true })).toHaveCount(1);
   await expect(page.locator('[data-result-group="excluded"] [data-decision-reasons] p')).toHaveText([
-    "평균 조회수 미달",
+    "카테고리 불일치",
   ]);
   await expect(page.getByText("H4 허구 과거 채널", { exact: true })).toHaveCount(0);
   await expect(page.getByText("H4 허구 실패 채널", { exact: true })).toHaveCount(0);
@@ -300,6 +300,7 @@ test("간소화된 메뉴와 기존 진입 주소는 스카우트 실행으로 �
   await expect(navigation.getByRole("link", { name: "스카우트 실행" })).toBeVisible();
   await expect(navigation.getByRole("link", { name: "스카우트 기록" })).toBeVisible();
   await expect(navigation.getByRole("link", { name: "크리에이터 히스토리" })).toBeVisible();
+  await expect(navigation.getByRole("link", { name: "추천 진단" })).toBeVisible();
   await expect(navigation.getByRole("link", { name: "설정" })).toBeVisible();
   await expect(navigation.getByRole("link", { name: "대시보드" })).toHaveCount(0);
   await expect(navigation.getByRole("link", { name: "운영 제어" })).toHaveCount(0);

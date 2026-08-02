@@ -1,3 +1,4 @@
+import { isPermanentHardExclusionReason } from "@/config/recommendation-rules";
 import type { CreatorDecision, ReasonCode } from "@/types/domain";
 
 const nominalEndings: ReadonlyArray<readonly [RegExp, string]> = [
@@ -50,18 +51,13 @@ const historyReasonLabels: Readonly<Record<ReasonCode, string>> = {
   affiliation_conflict: "소속 정보 충돌",
   missing_verification: "필수 근거 미확인",
   subscriber_threshold_not_configured: "구독자 기준 미사용",
+  subscriber_below_target: "구독자 목표 범위 미달",
   reupload_channel: "재가공 채널",
   compilation_channel: "재가공 채널",
   too_large: "구독자 기준 초과",
+  fit_score_below_threshold: "마케팅 적합도 미달",
+  manual_decision_override: "마케터 수동 판정",
 };
-
-const holdReasonCodes = new Set<ReasonCode>([
-  "missing_email",
-  "email_not_checked",
-  "email_ownership_unknown",
-  "affiliation_conflict",
-  "missing_verification",
-]);
 
 function toNominalEnding(sentence: string): string {
   for (const [pattern, replacement] of nominalEndings) {
@@ -72,8 +68,24 @@ function toNominalEnding(sentence: string): string {
 
 function relevantReasonCodes(reasonCodes: readonly ReasonCode[], decision: CreatorDecision): ReasonCode[] {
   if (decision === "recommended") return [];
-  if (decision === "hold") return reasonCodes.filter((code) => holdReasonCodes.has(code));
-  return reasonCodes.filter((code) => !holdReasonCodes.has(code) && code !== "subscriber_threshold_not_configured");
+  if (decision === "hold") {
+    return reasonCodes.filter((code) =>
+      !isPermanentHardExclusionReason(code)
+      && code !== "subscriber_threshold_not_configured"
+      && code !== "fit_score_below_threshold");
+  }
+  const excludedDiagnosticReasons: ReadonlySet<ReasonCode> = new Set([
+    "latest_upload_too_old",
+    "insufficient_recent_activity",
+    "insufficient_recent_video_count",
+    "recent_views_below_threshold",
+    "viral_video_distortion",
+    "subscriber_below_target",
+    "too_large",
+    "fit_score_below_threshold",
+    "manual_decision_override",
+  ]);
+  return reasonCodes.filter((code) => isPermanentHardExclusionReason(code) || excludedDiagnosticReasons.has(code));
 }
 
 export function formatHistoryReasonLines(
@@ -81,7 +93,9 @@ export function formatHistoryReasonLines(
   reasonCodes: readonly ReasonCode[] = [],
   decision?: CreatorDecision,
 ): string[] {
-  if (decision === "recommended") return ["추천 기준 충족"];
+  if (decision === "recommended") return reasonCodes.includes("manual_decision_override")
+    ? ["마케터 수동 추천"]
+    : ["추천 기준 충족"];
 
   const fixedLabels = relevantReasonCodes(reasonCodes, decision ?? "excluded")
     .map((code) => historyReasonLabels[code]);

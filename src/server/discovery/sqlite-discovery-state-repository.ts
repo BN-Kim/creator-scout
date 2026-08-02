@@ -48,6 +48,20 @@ export class SqliteDiscoveryStateRepository implements DiscoveryStateRepository 
     if (result.changes !== 1) throw new Error("발견 쿼리 상태를 찾을 수 없습니다.");
   }
 
+  recordProgress(key: string, delta: DiscoveryQueryDelta, now: string): void {
+    const result = this.database.prepare(`UPDATE discovery_query_state SET
+      candidates_scanned = candidates_scanned + ?, new_identities = new_identities + ?, duplicates = duplicates + ?,
+      recommended = recommended + ?, hold = hold + ?, excluded = excluded + ?, failed = failed + ?,
+      category_matches = category_matches + ?, korean_activity_matches = korean_activity_matches + ?,
+      personal_contacts = personal_contacts + ?, updated_at = ? WHERE normalized_key = ?`).run(
+      delta.candidatesScanned ?? 0, delta.newIdentities ?? 0, delta.duplicates ?? 0,
+      delta.recommended ?? 0, delta.hold ?? 0, delta.excluded ?? 0, delta.failed ?? 0,
+      delta.categoryMatches ?? 0, delta.koreanActivityMatches ?? 0, delta.personalContacts ?? 0,
+      now, key,
+    );
+    if (result.changes !== 1) throw new Error("발견 쿼리 상태를 찾을 수 없습니다.");
+  }
+
   setCooldown(key: string, cooldownUntil: string | null, exhausted: boolean, now: string): void {
     this.database.prepare("UPDATE discovery_query_state SET cooldown_until = ?, exhausted = ?, updated_at = ? WHERE normalized_key = ?")
       .run(cooldownUntil, exhausted ? 1 : 0, now, key);

@@ -9,6 +9,9 @@ interface HistoryRow {
   final_decision: HistoryRecord["finalDecision"]; category: string; reason_codes_json: string;
   korean_explanation: string; evidence_summary: string; scouting_run_id: string;
   created_at: string; updated_at: string; manual_correction_json: string | null;
+  fit_score: number | null; score_components_json: string | null; contact_ready: number | null;
+  rule_version: string; recheck_at: string | null; applied_settings_json: string | null;
+  decision_source: HistoryRecord["decisionSource"];
 }
 
 export class SqliteHistoryRepository implements HistoryRepository {
@@ -65,17 +68,25 @@ export class SqliteHistoryRepository implements HistoryRepository {
 function writeRecord(database: SqliteDatabase, record: HistoryRecord): void {
   database.prepare(`INSERT INTO history_records (
     id, identity_json, history_status, final_decision, category, reason_codes_json,
-    korean_explanation, evidence_summary, scouting_run_id, created_at, updated_at, manual_correction_json
-  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    korean_explanation, evidence_summary, scouting_run_id, created_at, updated_at, manual_correction_json,
+    fit_score, score_components_json, contact_ready, rule_version, recheck_at, applied_settings_json, decision_source
+  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   ON CONFLICT(id) DO UPDATE SET
     identity_json = excluded.identity_json, history_status = excluded.history_status,
     final_decision = excluded.final_decision, category = excluded.category,
     reason_codes_json = excluded.reason_codes_json, korean_explanation = excluded.korean_explanation,
     evidence_summary = excluded.evidence_summary, scouting_run_id = excluded.scouting_run_id,
-    updated_at = excluded.updated_at, manual_correction_json = excluded.manual_correction_json`)
+    updated_at = excluded.updated_at, manual_correction_json = excluded.manual_correction_json,
+    fit_score = excluded.fit_score, score_components_json = excluded.score_components_json,
+    contact_ready = excluded.contact_ready, rule_version = excluded.rule_version,
+    recheck_at = excluded.recheck_at, applied_settings_json = excluded.applied_settings_json,
+    decision_source = excluded.decision_source`)
     .run(record.id, JSON.stringify(record.identity), record.historyStatus, record.finalDecision, record.category,
       JSON.stringify(record.reasonCodes), record.koreanExplanation, record.evidenceSummary, record.scoutingRunId,
-      record.createdAt, record.updatedAt, record.manualCorrection ? JSON.stringify(record.manualCorrection) : null);
+      record.createdAt, record.updatedAt, record.manualCorrection ? JSON.stringify(record.manualCorrection) : null,
+      record.fitScore, record.scoreComponents ? JSON.stringify(record.scoreComponents) : null,
+      record.contactReady === null ? null : Number(record.contactReady), record.ruleVersion, record.recheckAt,
+      record.appliedSettings ? JSON.stringify(record.appliedSettings) : null, record.decisionSource);
   database.prepare("DELETE FROM history_identity_keys WHERE record_id = ?").run(record.id);
   const insertKey = database.prepare("INSERT OR IGNORE INTO history_identity_keys (record_id, key_type, key_value, priority) VALUES (?, ?, ?, ?)");
   for (const key of createIdentityKeys(record.identity)) insertKey.run(record.id, key.type, key.value, key.priority);
@@ -95,5 +106,12 @@ function rowToRecord(row: HistoryRow): HistoryRecord {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     manualCorrection: row.manual_correction_json ? JSON.parse(row.manual_correction_json) as HistoryRecord["manualCorrection"] : null,
+    fitScore: row.fit_score,
+    scoreComponents: row.score_components_json ? JSON.parse(row.score_components_json) as HistoryRecord["scoreComponents"] : null,
+    contactReady: row.contact_ready === null ? null : row.contact_ready === 1,
+    ruleVersion: row.rule_version,
+    recheckAt: row.recheck_at,
+    appliedSettings: row.applied_settings_json ? JSON.parse(row.applied_settings_json) as HistoryRecord["appliedSettings"] : null,
+    decisionSource: row.decision_source,
   };
 }
